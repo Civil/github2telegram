@@ -1,12 +1,12 @@
 package main
 
 import (
-	"go.uber.org/zap"
 	"fmt"
-	"time"
 	"github.com/lomik/zapwriter"
-	"regexp"
 	"github.com/mmcdole/gofeed"
+	"go.uber.org/zap"
+	"regexp"
+	"time"
 )
 
 func processFeed(id int) {
@@ -69,7 +69,7 @@ func processFeed(id int) {
 				if cfg.Filters[i].filterProcessed {
 					logger.Debug("item already processed by this filter",
 						zap.String("title", item.Title),
-						zap.String("filter", cfg.Filters[i]. Filter),
+						zap.String("filter", cfg.Filters[i].Filter),
 					)
 					continue
 				}

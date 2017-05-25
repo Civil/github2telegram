@@ -5,9 +5,9 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/telegram-bot-api.v4"
 
-	"strings"
-	"regexp"
 	"fmt"
+	"regexp"
+	"strings"
 )
 
 const (
@@ -33,7 +33,6 @@ func initializeTelegramEndpoint(token string) *TelegramEndpoint {
 	log.Info("Authorized on account",
 		zap.String("account", bot.Self.UserName),
 	)
-
 
 	return &TelegramEndpoint{
 		api: bot,
@@ -102,8 +101,8 @@ func (e *TelegramEndpoint) Process() {
 				}
 
 				feed := Feed{
-					Repo: tokens[1],
-					Name: tokens[2],
+					Repo:   tokens[1],
+					Name:   tokens[2],
 					Filter: tokens[3],
 				}
 
@@ -128,7 +127,7 @@ func (e *TelegramEndpoint) Process() {
 
 				err = addFeed(feed)
 				if err != nil {
-					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "Error adding feed: " + err.Error())
+					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "Error adding feed: "+err.Error())
 					continue
 				}
 				e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "Success!")
@@ -137,7 +136,7 @@ func (e *TelegramEndpoint) Process() {
 
 			if tokens[0] == "/subscribe" {
 				if len(tokens) != 3 {
-					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID,"/subscribe requires exactly 2 arguments")
+					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "/subscribe requires exactly 2 arguments")
 					continue
 				}
 
@@ -163,7 +162,7 @@ func (e *TelegramEndpoint) Process() {
 				config.RUnlock()
 
 				if !found {
-					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID,  "Unknown combination of url and filter, use /list to get list of possible feeds")
+					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "Unknown combination of url and filter, use /list to get list of possible feeds")
 					continue
 				}
 
@@ -178,7 +177,7 @@ func (e *TelegramEndpoint) Process() {
 						continue
 					}
 
-					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID,"Error occured while trying to subscribe")
+					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "Error occured while trying to subscribe")
 
 					logger.Error("error adding subscription",
 						zap.String("endpoint", "telegram"),
@@ -199,7 +198,7 @@ func (e *TelegramEndpoint) Process() {
 
 			if tokens[0] == "/unsubscribe" {
 				if len(tokens) != 3 {
-					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID,"/unsubscribe requires exactly 3 arguments")
+					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "/unsubscribe requires exactly 3 arguments")
 					continue
 				}
 
@@ -225,7 +224,7 @@ func (e *TelegramEndpoint) Process() {
 				config.RUnlock()
 
 				if !found {
-					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID,"Unknown combination of url and filter, use /list to get list of possible feeds")
+					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "Unknown combination of url and filter, use /list to get list of possible feeds")
 					continue
 				}
 
@@ -268,7 +267,7 @@ func (e *TelegramEndpoint) Process() {
 				continue
 			}
 
-			e.sendMessage(update.Message.Chat.ID, update.Message.MessageID,`supported commands:
+			e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, `supported commands:
 	/new repo filter_name filter_regexp [message_pattern]
 	/subscribe repo filter_name
 	/unsubscribe repo filter_name

@@ -1,10 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"github.com/lomik/zapwriter"
 	"go.uber.org/zap"
 	"time"
-	"fmt"
 )
 
 func getLastUpdateTime(url, filter string) time.Time {
@@ -24,7 +24,7 @@ func getLastUpdateTime(url, filter string) time.Time {
 		)
 		return t
 	}
-	for rows.Next()  {
+	for rows.Next() {
 		err = rows.Scan(&t)
 		if err != nil {
 			logger.Error("error retreiving data",
@@ -83,7 +83,7 @@ func getFeed(name string) (*Feed, error) {
 	}
 
 	result := &Feed{}
-	for rows.Next()  {
+	for rows.Next() {
 		err = rows.Scan(&result.Name, &result.Repo, &result.Filter, &result.MessagePattern)
 		if err != nil {
 			continue
@@ -101,7 +101,7 @@ func listFeeds() ([]Feed, error) {
 	}
 
 	var result []Feed
-	for rows.Next()  {
+	for rows.Next() {
 		tmp := Feed{}
 		err = rows.Scan(&tmp.Name, &tmp.Repo, &tmp.Filter, &tmp.MessagePattern)
 		if err != nil {
@@ -170,7 +170,7 @@ func getNotificationMethods(url, filter string) ([]string, error) {
 
 	var result []string
 	var tmp string
-	for rows.Next()  {
+	for rows.Next() {
 		err = rows.Scan(&tmp)
 		if err != nil {
 			logger.Error("error retreiving data",
@@ -204,7 +204,7 @@ func getEndpointInfo(endpoint, url, filter string) ([]int64, error) {
 
 	var result []int64
 	var tmp int64
-	for rows.Next()  {
+	for rows.Next() {
 		err = rows.Scan(&tmp)
 		if err != nil {
 			logger.Error("error retreiving data",
@@ -236,7 +236,7 @@ func updateLastUpdateTime(url, filter string, t time.Time) {
 		)
 		return
 	}
-	for rows.Next()  {
+	for rows.Next() {
 		err = rows.Scan(&id)
 		if err != nil {
 			logger.Error("error retreiving data",

@@ -5,12 +5,12 @@ import (
 	"github.com/lomik/zapwriter"
 	"regexp"
 
-	"time"
 	"database/sql"
-	"sync"
 	"go.uber.org/zap"
-	"io/ioutil"
 	"gopkg.in/yaml.v2"
+	"io/ioutil"
+	"sync"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"log"
@@ -41,8 +41,8 @@ type FiltersConfig struct {
 
 type NotificationConfig struct {
 	Token string
-	Url  string
-	Type string
+	Url   string
+	Type  string
 }
 
 type NotificationEndpoints interface {
@@ -51,24 +51,23 @@ type NotificationEndpoints interface {
 }
 
 type FeedsConfig struct {
-	Repo            string
-	Filters        []FiltersConfig
+	Repo    string
+	Filters []FiltersConfig
 
 	PollingInterval time.Duration
 	Notifications   []string
 }
 
 type Feed struct {
-	Repo string
-	Filter string
-	Name string
+	Repo           string
+	Filter         string
+	Name           string
 	MessagePattern string
 
 	filterRegex     *regexp.Regexp
 	filterProcessed bool
 	lastUpdateTime  time.Time
 }
-
 
 var config = struct {
 	sync.RWMutex
@@ -79,27 +78,25 @@ var config = struct {
 	DatabaseLogin    string
 	DatabasePassword string
 
-	Endpoints        map[string]NotificationConfig
-	db               *sql.DB
-	wg               sync.WaitGroup
-	senders          map[string]NotificationEndpoints
-	feedsConfig      []FeedsConfig
-	currentId        int
-	processingFeeds  map[string]bool
+	Endpoints       map[string]NotificationConfig
+	db              *sql.DB
+	wg              sync.WaitGroup
+	senders         map[string]NotificationEndpoints
+	feedsConfig     []FeedsConfig
+	currentId       int
+	processingFeeds map[string]bool
 }{
 	Listen: ":8080",
 	Endpoints: map[string]NotificationConfig{
 		"telegram": {
-			Type: "telegram",
+			Type:  "telegram",
 			Token: "CHANGE_ME",
 		},
 	},
-	Logger:       []zapwriter.Config{DefaultLoggerConfig},
-	DatabaseType: "sqlite3",
-	DatabaseURL:  "./github2telegram.db",
+	Logger:          []zapwriter.Config{DefaultLoggerConfig},
+	DatabaseType:    "sqlite3",
+	DatabaseURL:     "./github2telegram.db",
 	processingFeeds: make(map[string]bool),
-
-
 }
 
 const (
@@ -208,22 +205,21 @@ func updateFeeds(feeds []Feed) {
 		}
 		if cfg == nil {
 			cfg := FeedsConfig{
-				Repo: feed.Repo,
+				Repo:            feed.Repo,
 				PollingInterval: 30 * time.Minute,
 				Filters: []FiltersConfig{{
-					Name: feed.Name,
-					Filter: feed.Filter,
+					Name:           feed.Name,
+					Filter:         feed.Filter,
 					MessagePattern: feed.MessagePattern,
 				}},
 			}
-
 
 			config.feedsConfig = append(config.feedsConfig, cfg)
 			continue
 		}
 		cfg.Filters = append(cfg.Filters, FiltersConfig{
-			Name: feed.Name,
-			Filter: feed.Filter,
+			Name:           feed.Name,
+			Filter:         feed.Filter,
 			MessagePattern: feed.MessagePattern,
 		})
 	}
