@@ -1,0 +1,4 @@
+endpoints:
+        telegram:
+                type: "telegram"
+                token: "YOUR_TOKEN_GOES_HERE"
