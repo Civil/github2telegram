@@ -95,6 +95,10 @@ func (e *TelegramEndpoint) Process() {
 			tokens := strings.Split(update.Message.Text, " ")
 
 			if tokens[0] == "/new" {
+				if update.Message.From.UserName != config.AdminUsername {
+					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "Unauthorized action")
+					continue
+				}
 				if len(tokens) != 4 {
 					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "Usage: /new repo_name filter_name filter_regex [message_pattern (will replace firt '%s' with feed name]")
 					continue

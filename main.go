@@ -77,6 +77,7 @@ var config = struct {
 	DatabaseURL      string
 	DatabaseLogin    string
 	DatabasePassword string
+	AdminUsername    string
 
 	Endpoints       map[string]NotificationConfig
 	db              *sql.DB
@@ -86,6 +87,7 @@ var config = struct {
 	currentId       int
 	processingFeeds map[string]bool
 }{
+	AdminUsername: "Civiloid",
 	Listen: ":8080",
 	Endpoints: map[string]NotificationConfig{
 		"telegram": {
