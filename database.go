@@ -115,12 +115,12 @@ func listFeeds() ([]Feed, error) {
 }
 
 func addSubscribtion(endpoint, url, filter string, chatID int64) error {
-	stmt, err := config.db.Prepare("SELECT chat_id FROM 'subscriptions' where endpoint=? and url=? and filter=?;")
+	stmt, err := config.db.Prepare("SELECT chat_id FROM 'subscriptions' where endpoint=? and url=? and filter=? and chat_id=?;")
 	if err != nil {
 		return err
 	}
 
-	rows, err := stmt.Query(endpoint, url, filter)
+	rows, err := stmt.Query(endpoint, url, filter, chatID)
 	if err != nil {
 		return err
 	}

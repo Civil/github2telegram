@@ -110,7 +110,7 @@ func (e *TelegramEndpoint) Process() {
 				if len(tokens) == 5 {
 					feed.MessagePattern = tokens[4]
 				} else {
-					feed.MessagePattern = "%v: %v was tagged"
+					feed.MessagePattern = "https://github.com/%v/releases/%v was tagged"
 				}
 
 				_, err := regexp.Compile(feed.Filter)
@@ -267,11 +267,14 @@ func (e *TelegramEndpoint) Process() {
 				continue
 			}
 
-			e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, `supported commands:
+			if tokens[0] == "/help" {
+				e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, `supported commands:
 	/new repo filter_name filter_regexp [message_pattern]
 	/subscribe repo filter_name
 	/unsubscribe repo filter_name
 	/list`)
+				continue
+			}
 		}
 	}
 }
