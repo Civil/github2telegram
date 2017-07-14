@@ -94,14 +94,17 @@ func (e *TelegramEndpoint) Process() {
 
 			tokens := strings.Split(update.Message.Text, " ")
 
-			if tokens[0] == "/new" {
+			var m string
+			switch tokens[0] {
+			case "/new":
+				// TODO: do proper autorization, e.x. check if user have admin rights in a chat or if that's a private chat
 				if update.Message.From.UserName != config.AdminUsername {
-					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "Unauthorized action")
-					continue
+					m = "Unauthorized action"
+					break
 				}
 				if len(tokens) != 4 {
-					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "Usage: /new repo_name filter_name filter_regex [message_pattern (will replace firt '%s' with feed name]")
-					continue
+					m = "Usage: /new repo_name filter_name filter_regex [message_pattern (will replace firt '%s' with feed name]"
+					break
 				}
 
 				feed := Feed{
@@ -110,6 +113,7 @@ func (e *TelegramEndpoint) Process() {
 					Filter: tokens[3],
 				}
 
+				m = "Success!"
 				// TODO: Fix parser and allow to specify custom messages
 				if len(tokens) == 5 {
 					feed.MessagePattern = tokens[4]
@@ -119,29 +123,25 @@ func (e *TelegramEndpoint) Process() {
 
 				_, err := regexp.Compile(feed.Filter)
 				if err != nil {
-					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "Invalid regexp")
-					continue
+					m = "Invalid regexp"
+					break
 				}
 
 				tmp := fmt.Sprintf(feed.MessagePattern, feed.Repo, "1.0")
 				if strings.Contains(tmp, "%!") {
-					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "Invalid message pattern!")
-					continue
+					m = "Invalid message pattern!"
+					break
 				}
 
 				err = addFeed(feed)
 				if err != nil {
-					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "Error adding feed: "+err.Error())
-					continue
+					m = "Error adding feed: "+err.Error()
+					break
 				}
-				e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "Success!")
-				continue
-			}
-
-			if tokens[0] == "/subscribe" {
+			case "/subscribe":
 				if len(tokens) != 3 {
-					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "/subscribe requires exactly 2 arguments")
-					continue
+					m = "/subscribe requires exactly 2 arguments"
+					break
 				}
 
 				url := tokens[1]
@@ -166,22 +166,17 @@ func (e *TelegramEndpoint) Process() {
 				config.RUnlock()
 
 				if !found {
-					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "Unknown combination of url and filter, use /list to get list of possible feeds")
-					continue
+					m = "Unknown combination of url and filter, use /list to get list of possible feeds"
+					break
 				}
 
 				chatID := update.Message.Chat.ID
 				err = addSubscribtion("telegram", url, filterName, chatID)
 				if err != nil {
 					if err == errAlreadyExists {
-						msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Already subscribed")
-						msg.ReplyToMessageID = update.Message.MessageID
-
-						e.api.Send(msg)
-						continue
+						m = "Already subscribed"
+						break
 					}
-
-					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "Error occured while trying to subscribe")
 
 					logger.Error("error adding subscription",
 						zap.String("endpoint", "telegram"),
@@ -190,20 +185,15 @@ func (e *TelegramEndpoint) Process() {
 						zap.Int64("chat_id", chatID),
 						zap.Error(err),
 					)
-					continue
+					m = "Error occured while trying to subscribe"
+					break
 				}
 
-				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Success!")
-				msg.ReplyToMessageID = update.Message.MessageID
-
-				e.api.Send(msg)
-				continue
-			}
-
-			if tokens[0] == "/unsubscribe" {
+				m = "Success!"
+			case "/unsubscribe":
 				if len(tokens) != 3 {
-					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "/unsubscribe requires exactly 3 arguments")
-					continue
+					m = "/unsubscribe requires exactly 3 arguments"
+					break
 				}
 
 				url := tokens[1]
@@ -228,17 +218,13 @@ func (e *TelegramEndpoint) Process() {
 				config.RUnlock()
 
 				if !found {
-					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "Unknown combination of url and filter, use /list to get list of possible feeds")
-					continue
+					m = "Unknown combination of url and filter, use /list to get list of possible feeds"
+					break
 				}
 
 				chatID := update.Message.Chat.ID
 				err = removeSubscribtion("telegram", url, filterName, chatID)
 				if err != nil {
-					msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Error occured while trying to subscribe")
-					msg.ReplyToMessageID = update.Message.MessageID
-
-					e.api.Send(msg)
 					logger.Error("error removing subscription",
 						zap.String("endpoint", "telegram"),
 						zap.String("url", url),
@@ -246,17 +232,15 @@ func (e *TelegramEndpoint) Process() {
 						zap.Int64("chat_id", chatID),
 						zap.Error(err),
 					)
-					continue
+
+					m = "Error occured while trying to subscribe"
+					break
 				}
 
-				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Success!")
-				msg.ReplyToMessageID = update.Message.MessageID
-
-				e.api.Send(msg)
-				continue
-			}
-
-			if tokens[0] == "/list" {
+				m = "Success!"
+			case "/subscriptions":
+				m = "Not implemented yet!"
+			case "/list":
 				response := "Configured feeds:\n"
 				config.RLock()
 				for _, feed := range config.feedsConfig {
@@ -265,19 +249,17 @@ func (e *TelegramEndpoint) Process() {
 					}
 				}
 				config.RUnlock()
-
-				e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, response)
-
-				continue
-			}
-
-			if tokens[0] == "/help" {
-				e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, `supported commands:
+				m = response
+			case "/help":
+				m = `supported commands:
 	/new repo filter_name filter_regexp [message_pattern]
 	/subscribe repo filter_name
 	/unsubscribe repo filter_name
-	/list`)
-				continue
+	/list`
+			}
+
+			if m != "" {
+				e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, m)
 			}
 		}
 	}
