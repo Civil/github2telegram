@@ -18,15 +18,12 @@ type TelegramEndpoint struct {
 	api *tgbotapi.BotAPI
 }
 
-func initializeTelegramEndpoint(token string) *TelegramEndpoint {
+func initializeTelegramEndpoint(token string) (*TelegramEndpoint, error) {
 	logger := zapwriter.Logger("telegram")
 	log := logger
 	bot, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
-		logger.Fatal("Error initializing telegram bot",
-			zap.Error(err),
-			zap.String("token", token),
-		)
+		return nil, err
 	}
 	bot.Debug = true
 
@@ -36,7 +33,7 @@ func initializeTelegramEndpoint(token string) *TelegramEndpoint {
 
 	return &TelegramEndpoint{
 		api: bot,
-	}
+	}, nil
 }
 
 func (e *TelegramEndpoint) Send(url, filter, message string) error {
@@ -135,7 +132,7 @@ func (e *TelegramEndpoint) Process() {
 
 				err = addFeed(feed)
 				if err != nil {
-					m = "Error adding feed: "+err.Error()
+					m = "Error adding feed: " + err.Error()
 					break
 				}
 			case "/subscribe":
