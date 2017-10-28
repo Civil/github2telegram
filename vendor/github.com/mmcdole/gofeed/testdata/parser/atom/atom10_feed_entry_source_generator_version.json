@@ -1,0 +1,13 @@
+{
+    "entries": [
+        {
+            "source": {
+                "generator": {
+                    "value": "Example generator",
+                    "version": "2.65"
+                }
+            }
+        }
+    ],
+    "version": "1.0"
+}

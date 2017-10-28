@@ -1,0 +1,11 @@
+{
+    "entries": [
+        {
+            "content": {
+                "type": "application/octet-stream",
+                "value": "Example <b>Atom</b>"
+            }
+        }
+    ],
+    "version": "1.0"
+}

@@ -1,0 +1,12 @@
+{
+    "entries": [
+        {
+            "authors": [
+                {
+                    "uri": "http://example.com/"
+                }
+            ]
+        }
+    ],
+    "version": "0.3"
+}

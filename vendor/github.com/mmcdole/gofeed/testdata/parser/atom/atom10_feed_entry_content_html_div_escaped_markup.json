@@ -1,0 +1,11 @@
+{
+    "entries": [
+        {
+            "content": {
+                "type": "html",
+                "value": "Example <b>Atom</b>"
+            }
+        }
+    ],
+    "version": "1.0"
+}
