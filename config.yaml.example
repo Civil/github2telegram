@@ -1,4 +1,23 @@
+---
+# Port for Debug info
+listen: ":6060"
+logger:
+- logger: ''
+  file: stdout
+  level: debug
+  encoding: json
+  encoding_time: iso8601
+  encoding_duration: seconds
+# Only sqlite3 was tested
+database_type: sqlite3
+database_url: "./github2telegram.sqlite3"
+database_login: ''
+database_password: ''
+# Username that will have access to bot controls. Currently only one can be specified
+admin_username: "your_telegram_nick"
 endpoints:
-        telegram:
-                type: "telegram"
-                token: "YOUR_TOKEN_GOES_HERE"
+  # Currently only telegram is supported
+  telegram:
+    token: "YOUR_TOKEN_GOES_HERE"
+    type: telegram
+

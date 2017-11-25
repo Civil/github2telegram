@@ -258,6 +258,9 @@ func main() {
 	flag.Parse()
 
 	if *configFile != "" {
+		logger.Info("Will apply config from file",
+			zap.String("config_file", *configFile),
+		)
 		cfgRaw, err := ioutil.ReadFile(*configFile)
 		if err != nil {
 			logger.Fatal("unable to load config file:",
@@ -296,7 +299,14 @@ func main() {
 
 	for name, cfg := range config.Endpoints {
 		if cfg.Type == "telegram" {
-			config.senders[name] = initializeTelegramEndpoint(cfg.Token)
+			config.senders[name], err = initializeTelegramEndpoint(cfg.Token)
+			if err != nil {
+				logger.Fatal("Error initializing telegram bot",
+					zap.Error(err),
+					zap.Any("config", config),
+				)
+			}
+
 			go config.senders[name].Process()
 		} else {
 			logger.Fatal("unknown type",
