@@ -1,0 +1,13 @@
+{
+    "entries": [
+        {
+            "source": {
+                "generator": {
+                    "value": "Example generator",
+                    "uri": "http://example.com/"
+                }
+            }
+        }
+    ],
+    "version": "1.0"
+}

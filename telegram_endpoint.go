@@ -15,7 +15,8 @@ const (
 )
 
 type TelegramEndpoint struct {
-	api *tgbotapi.BotAPI
+	api    *tgbotapi.BotAPI
+	admins map[int64][]int
 }
 
 func initializeTelegramEndpoint(token string) (*TelegramEndpoint, error) {
@@ -32,8 +33,11 @@ func initializeTelegramEndpoint(token string) (*TelegramEndpoint, error) {
 	)
 
 	return &TelegramEndpoint{
-		api: bot,
+		api:    bot,
+		admins: make(map[int64][]int),
 	}, nil
+  
+  
 }
 
 func (e *TelegramEndpoint) Send(url, filter, message string) error {
@@ -65,6 +69,35 @@ func (e *TelegramEndpoint) sendMessage(chatID int64, messageID int, message stri
 	e.api.Send(msg)
 }
 
+func (e *TelegramEndpoint) checkUserAccess(update *tgbotapi.Update) bool {
+	logger := zapwriter.Logger("accessChecker")
+	chatID := update.Message.Chat.ID
+	if !update.Message.Chat.IsPrivate() {
+		admins, ok := e.admins[chatID]
+		if !ok {
+			members, err := e.api.GetChatAdministrators(update.Message.Chat.ChatConfig())
+			if err != nil {
+				logger.Error("failed to get chat admins",
+					zap.Error(err),
+				)
+			}
+			for _, m := range members {
+				admins = append(admins, m.User.ID)
+			}
+			e.admins[chatID] = admins
+		}
+
+		for _, id := range admins {
+			if id == update.Message.From.ID {
+				return true
+			}
+		}
+		return false
+	}
+
+	return true
+}
+
 func (e *TelegramEndpoint) Process() {
 	logger := zapwriter.Logger("telegram")
 
@@ -94,13 +127,12 @@ func (e *TelegramEndpoint) Process() {
 			var m string
 			switch tokens[0] {
 			case "/new":
-				// TODO: do proper autorization, e.x. check if user have admin rights in a chat or if that's a private chat
-				if update.Message.From.UserName != config.AdminUsername {
+				if !e.checkUserAccess(&update) {
 					m = "Unauthorized action"
 					break
 				}
 				if len(tokens) != 4 {
-					m = "Usage: /new repo_name filter_name filter_regex [message_pattern (will replace firt '%s' with feed name]"
+					m = "Usage: /new repo_name filter_name filter_regex [message_pattern (will replace first '%s' with feed name]"
 					break
 				}
 
@@ -136,6 +168,11 @@ func (e *TelegramEndpoint) Process() {
 					break
 				}
 			case "/subscribe":
+				if !e.checkUserAccess(&update) {
+					m = "Unauthorized action"
+					break
+				}
+
 				if len(tokens) != 3 {
 					m = "/subscribe requires exactly 2 arguments"
 					break
@@ -188,6 +225,11 @@ func (e *TelegramEndpoint) Process() {
 
 				m = "Success!"
 			case "/unsubscribe":
+				if !e.checkUserAccess(&update) {
+					m = "Unauthorized action"
+					break
+				}
+
 				if len(tokens) != 3 {
 					m = "/unsubscribe requires exactly 3 arguments"
 					break
