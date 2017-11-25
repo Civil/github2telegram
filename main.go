@@ -88,7 +88,7 @@ var config = struct {
 	processingFeeds map[string]bool
 }{
 	AdminUsername: "Civiloid",
-	Listen: ":8080",
+	Listen:        ":8080",
 	Endpoints: map[string]NotificationConfig{
 		"telegram": {
 			Type:  "telegram",

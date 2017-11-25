@@ -15,7 +15,7 @@ const (
 )
 
 type TelegramEndpoint struct {
-	api *tgbotapi.BotAPI
+	api    *tgbotapi.BotAPI
 	admins map[int64][]int
 }
 
@@ -36,7 +36,8 @@ func initializeTelegramEndpoint(token string) *TelegramEndpoint {
 	)
 
 	return &TelegramEndpoint{
-		api: bot,
+		api:    bot,
+		admins: make(map[int64][]int),
 	}
 }
 
@@ -164,7 +165,7 @@ func (e *TelegramEndpoint) Process() {
 
 				err = addFeed(feed)
 				if err != nil {
-					m = "Error adding feed: "+err.Error()
+					m = "Error adding feed: " + err.Error()
 					break
 				}
 			case "/subscribe":
