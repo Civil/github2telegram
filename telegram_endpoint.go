@@ -6,20 +6,20 @@ import (
 	"gopkg.in/telegram-bot-api.v4"
 
 	"fmt"
+	"github.com/pkg/errors"
 	"regexp"
 	"strings"
-	"github.com/pkg/errors"
 )
 
 type user struct {
-	id int
+	id       int
 	username string
 }
 
-type handler func (tokens []string, update *tgbotapi.Update) error
+type handler func(tokens []string, update *tgbotapi.Update) error
 
 type handlerWithDescription struct {
-	f handler
+	f           handler
 	description string
 }
 
@@ -29,11 +29,13 @@ type TelegramEndpoint struct {
 	api    *tgbotapi.BotAPI
 	admins map[int64][]user
 
-	logger *zap.Logger
+	logger   *zap.Logger
 	commands map[string]handlerWithDescription
+
+	exitChan <-chan struct{}
 }
 
-func initializeTelegramEndpoint(token string) (*TelegramEndpoint, error) {
+func initializeTelegramEndpoint(token string, exitChan <-chan struct{}) (*TelegramEndpoint, error) {
 	logger := zapwriter.Logger("telegram")
 	log := logger
 	bot, err := tgbotapi.NewBotAPI(token)
@@ -47,30 +49,31 @@ func initializeTelegramEndpoint(token string) (*TelegramEndpoint, error) {
 	)
 
 	e := &TelegramEndpoint{
-		api:    bot,
-		admins: make(map[int64][]user),
-		logger: logger,
+		api:      bot,
+		admins:   make(map[int64][]user),
+		logger:   logger,
+		exitChan: exitChan,
 	}
 
 	e.commands = map[string]handlerWithDescription{
 		"/new": {
-			f: e.handlerNew,
+			f:           e.handlerNew,
 			description: "`/new repo filter_name filter_regexp` -- creates new available subscription",
 		},
 		"/subscribe": {
-			f: e.handlerSubscribe,
+			f:           e.handlerSubscribe,
 			description: "`/subscribe repo filter_name` -- subscribe current channel to specific repo and filter",
 		},
 		"/unsubscribe": {
-			f: e.handlerUnsubscribe,
+			f:           e.handlerUnsubscribe,
 			description: "`/unsubscribe repo filter_name`  -- unsubscribe current channel to specific repo and filter",
 		},
 		"/list": {
-			f: e.handlerList,
+			f:           e.handlerList,
 			description: "`/list` -- lists all available repos",
 		},
 		"/help": {
-			f: e.handlerHelp,
+			f:           e.handlerHelp,
 			description: "`/help` -- display current help",
 		},
 	}
@@ -129,7 +132,7 @@ func (e *TelegramEndpoint) checkAuthorized(update *tgbotapi.Update) bool {
 
 		logger.Debug("list of admins",
 			zap.Any("admins", admins),
-			)
+		)
 
 		for _, user := range admins {
 			if user.id == update.Message.From.ID {
@@ -150,30 +153,22 @@ func (e *TelegramEndpoint) handlerNew(tokens []string, update *tgbotapi.Update) 
 		return errors.New("Not enough arguments\n\nUsage: /new repo_name filter_name filter_regex [message_pattern (will replace first '%s' with feed name]")
 	}
 
-	feed := Feed{
-		Repo:   tokens[1],
-		Name:   tokens[2],
-		Filter: tokens[3],
-	}
+	repo := tokens[1]
+	name := tokens[2]
+	filter := tokens[3]
+	pattern := "https://github.com/%v/releases/%v was tagged"
 
-	// TODO: Fix parser and allow to specify custom messages
-	if len(tokens) == 5 {
-		feed.MessagePattern = tokens[4]
-	} else {
-		feed.MessagePattern = "https://github.com/%v/releases/%v was tagged"
-	}
-
-	_, err := regexp.Compile(feed.Filter)
+	_, err := regexp.Compile(filter)
 	if err != nil {
 		return errors.Wrap(err, "invalid regexp")
 	}
 
-	tmp := fmt.Sprintf(feed.MessagePattern, feed.Repo, "1.0")
+	tmp := fmt.Sprintf(pattern, repo, "1.0")
 	if strings.Contains(tmp, "%!") {
 		return errors.New("Invalid message pattern!")
 	}
 
-	err = addFeed(feed)
+	err = addFeed(name, repo, filter, pattern)
 	if err != nil {
 		return errors.Wrap(err, "error adding feed")
 	}
@@ -306,6 +301,11 @@ func (e *TelegramEndpoint) Process() {
 	u.Timeout = 60
 
 	for {
+		select {
+		case <-e.exitChan:
+			return
+		default:
+		}
 		updates, err := e.api.GetUpdatesChan(u)
 		if err != nil {
 			logger.Error("unknown error occurred",

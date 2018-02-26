@@ -20,6 +20,12 @@
   revision = "d4499a33b5929c4a2e7e169165f594f35b39638c"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/lunny/html2md"
+  packages = ["."]
+  revision = "c8a29f8bf153a444423fd83f1ab373088ba19f47"
+
+[[projects]]
   name = "github.com/mattn/go-sqlite3"
   packages = ["."]
   revision = "6c771bb9887719704b210e87e934f08be014bdb1"
@@ -129,6 +135,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "3b0c54913a9dd10ff867e6f843dc32cff80d265284d66ac8e071ed621b67a6f2"
+  inputs-digest = "69b2e548f3bab875efed2b5cdf8e5b2030c2dc54d5e17e595e0b832ef8d76e98"
   solver-name = "gps-cdcl"
   solver-version = 1

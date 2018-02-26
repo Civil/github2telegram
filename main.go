@@ -24,7 +24,7 @@ var DefaultLoggerConfig = zapwriter.Config{
 	Logger:           "",
 	File:             "stdout",
 	Level:            "info",
-	Encoding:         "console",
+	Encoding:         "json",
 	EncodingTime:     "iso8601",
 	EncodingDuration: "seconds",
 }
@@ -56,17 +56,6 @@ type FeedsConfig struct {
 
 	PollingInterval time.Duration
 	Notifications   []string
-}
-
-type Feed struct {
-	Repo           string
-	Filter         string
-	Name           string
-	MessagePattern string
-
-	filterRegex     *regexp.Regexp
-	filterProcessed bool
-	lastUpdateTime  time.Time
 }
 
 var config = struct {
@@ -193,9 +182,10 @@ func initSqlite() {
 
 }
 
-func updateFeeds(feeds []Feed) {
+func updateFeeds(feeds []*Feed) {
 	config.Lock()
 	defer config.Unlock()
+	logger := zapwriter.Logger("updateFeeds")
 
 	for _, feed := range feeds {
 		var cfg *FeedsConfig
@@ -206,13 +196,23 @@ func updateFeeds(feeds []Feed) {
 			}
 		}
 		if cfg == nil {
+			re, err := regexp.Compile(feed.Filter)
+			if err != nil {
+				logger.Error("failed to compile regex",
+					zap.String("filter", feed.Filter),
+					zap.Error(err),
+				)
+				continue
+			}
+
 			cfg := FeedsConfig{
 				Repo:            feed.Repo,
-				PollingInterval: 30 * time.Minute,
+				PollingInterval: 15 * time.Minute,
 				Filters: []FiltersConfig{{
 					Name:           feed.Name,
 					Filter:         feed.Filter,
 					MessagePattern: feed.MessagePattern,
+					filterRegex:    re,
 				}},
 			}
 
@@ -226,23 +226,12 @@ func updateFeeds(feeds []Feed) {
 		})
 	}
 
-	logger := zapwriter.Logger("haha")
-	logger.Info("debug",
-		zap.Any("cfg", config.feedsConfig),
-	)
-
-	for i := range config.feedsConfig {
-		if _, ok := config.processingFeeds[config.feedsConfig[i].Repo]; !ok {
-			logger.Info("id",
-				zap.Int("id", i),
-			)
-			config.processingFeeds[config.feedsConfig[i].Repo] = true
-			config.wg.Add(1)
-			go func(id int) {
-				processFeed(id)
-				config.wg.Done()
-			}(i)
-		}
+	for _, feed := range feeds {
+		config.wg.Add(1)
+		go func(f *Feed) {
+			f.ProcessFeed()
+			config.wg.Done()
+		}(feed)
 	}
 }
 
@@ -295,11 +284,13 @@ func main() {
 		initSqlite()
 	}
 
+	exitChan := make(chan struct{})
+
 	config.senders = make(map[string]NotificationEndpoints)
 
 	for name, cfg := range config.Endpoints {
 		if cfg.Type == "telegram" {
-			config.senders[name], err = initializeTelegramEndpoint(cfg.Token)
+			config.senders[name], err = initializeTelegramEndpoint(cfg.Token, exitChan)
 			if err != nil {
 				logger.Fatal("Error initializing telegram bot",
 					zap.Error(err),

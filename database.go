@@ -39,13 +39,13 @@ func getLastUpdateTime(url, filter string) time.Time {
 
 var errAlreadyExists error = fmt.Errorf("Already exists")
 
-func addFeed(feed Feed) error {
+func addFeed(name, repo, filter, messagePattern string) error {
 	stmt, err := config.db.Prepare("SELECT id FROM 'feeds' where name=? and repo=?;")
 	if err != nil {
 		return err
 	}
 
-	rows, err := stmt.Query(feed.Name, feed.Repo)
+	rows, err := stmt.Query(name, repo)
 	if err != nil {
 		return err
 	}
@@ -61,14 +61,38 @@ func addFeed(feed Feed) error {
 		return err
 	}
 
-	_, err = stmt.Exec(feed.Name, feed.Repo, feed.Filter, feed.MessagePattern)
+	_, err = stmt.Exec(name, repo, filter, messagePattern)
 	if err != nil {
 		return err
 	}
 
-	updateFeeds([]Feed{feed})
+	var id int
+	stmt, err = config.db.Prepare("SELECT id FROM 'feeds' where name=? and repo=?;")
+	if err != nil {
+		return err
+	}
 
-	return err
+	rows, err = stmt.Query(name, repo)
+	if err != nil {
+		return err
+	}
+
+	if rows.Next() {
+		err = rows.Scan(&id)
+		if err != nil {
+			return err
+		}
+	}
+	rows.Close()
+
+	feed, err := NewFeed(id, repo, filter, name, messagePattern)
+	if err != nil {
+		return err
+	}
+
+	updateFeeds([]*Feed{feed})
+
+	return nil
 }
 
 func getFeed(name string) (*Feed, error) {
@@ -94,20 +118,26 @@ func getFeed(name string) (*Feed, error) {
 	return result, nil
 }
 
-func listFeeds() ([]Feed, error) {
-	rows, err := config.db.Query("SELECT name, repo, filter, message_pattern FROM 'feeds';")
+func listFeeds() ([]*Feed, error) {
+	rows, err := config.db.Query("SELECT id, name, repo, filter, message_pattern FROM 'feeds';")
 	if err != nil {
 		return nil, err
 	}
 
-	var result []Feed
+	var result []*Feed
+	var id int
+	var name, repo, filter, pattern string
 	for rows.Next() {
-		tmp := Feed{}
-		err = rows.Scan(&tmp.Name, &tmp.Repo, &tmp.Filter, &tmp.MessagePattern)
+		err = rows.Scan(&id, &name, &repo, &filter, &pattern)
 		if err != nil {
 			continue
 		}
-		result = append(result, tmp)
+
+		f, err := NewFeed(id, repo, filter, name, pattern)
+		if err != nil {
+			continue
+		}
+		result = append(result, f)
 	}
 	rows.Close()
 
