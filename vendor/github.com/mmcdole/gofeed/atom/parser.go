@@ -9,7 +9,6 @@ import (
 	"github.com/mmcdole/gofeed/extensions"
 	"github.com/mmcdole/gofeed/internal/shared"
 	"github.com/mmcdole/goxpp"
-	"golang.org/x/net/html/charset"
 )
 
 // Parser is an Atom Parser
@@ -17,8 +16,7 @@ type Parser struct{}
 
 // Parse parses an xml feed into an atom.Feed
 func (ap *Parser) Parse(feed io.Reader) (*Feed, error) {
-	fr := shared.NewXMLSanitizerReader(feed)
-	p := xpp.NewXMLPullParser(fr, false, charset.NewReaderLabel)
+	p := xpp.NewXMLPullParser(feed, false, shared.NewReaderLabel)
 
 	_, err := shared.FindRoot(p)
 	if err != nil {
@@ -45,7 +43,7 @@ func (ap *Parser) parseRoot(p *xpp.XMLPullParser) (*Feed, error) {
 	extensions := ext.Extensions{}
 
 	for {
-		tok, err := p.NextTag()
+		tok, err := shared.NextTag(p)
 		if err != nil {
 			return nil, err
 		}
@@ -199,7 +197,7 @@ func (ap *Parser) parseEntry(p *xpp.XMLPullParser) (*Entry, error) {
 	extensions := ext.Extensions{}
 
 	for {
-		tok, err := p.NextTag()
+		tok, err := shared.NextTag(p)
 		if err != nil {
 			return nil, err
 		}
@@ -354,7 +352,7 @@ func (ap *Parser) parseSource(p *xpp.XMLPullParser) (*Source, error) {
 	extensions := ext.Extensions{}
 
 	for {
-		tok, err := p.NextTag()
+		tok, err := shared.NextTag(p)
 		if err != nil {
 			return nil, err
 		}
@@ -512,7 +510,7 @@ func (ap *Parser) parsePerson(name string, p *xpp.XMLPullParser) (*Person, error
 	person := &Person{}
 
 	for {
-		tok, err := p.NextTag()
+		tok, err := shared.NextTag(p)
 		if err != nil {
 			return nil, err
 		}
@@ -669,12 +667,12 @@ func (ap *Parser) parseAtomText(p *xpp.XMLPullParser) (string, error) {
 	if lowerType == "text" ||
 		strings.HasPrefix(lowerType, "text/") ||
 		(lowerType == "" && lowerMode == "") {
-		result = shared.DecodeEntities(result)
+		result, err = shared.DecodeEntities(result)
 	} else if strings.Contains(lowerType, "xhtml") {
 		result = ap.stripWrappingDiv(result)
 	} else if lowerType == "html" {
 		result = ap.stripWrappingDiv(result)
-		result = shared.DecodeEntities(result)
+		result, err = shared.DecodeEntities(result)
 	} else {
 		decodedStr, err := base64.StdEncoding.DecodeString(result)
 		if err == nil {
@@ -682,7 +680,7 @@ func (ap *Parser) parseAtomText(p *xpp.XMLPullParser) (string, error) {
 		}
 	}
 
-	return result, nil
+	return result, err
 }
 
 func (ap *Parser) parseLanguage(p *xpp.XMLPullParser) string {

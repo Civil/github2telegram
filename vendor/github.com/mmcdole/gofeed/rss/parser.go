@@ -8,7 +8,6 @@ import (
 	"github.com/mmcdole/gofeed/extensions"
 	"github.com/mmcdole/gofeed/internal/shared"
 	"github.com/mmcdole/goxpp"
-	"golang.org/x/net/html/charset"
 )
 
 // Parser is a RSS Parser
@@ -16,8 +15,7 @@ type Parser struct{}
 
 // Parse parses an xml feed into an rss.Feed
 func (rp *Parser) Parse(feed io.Reader) (*Feed, error) {
-	fr := shared.NewXMLSanitizerReader(feed)
-	p := xpp.NewXMLPullParser(fr, false, charset.NewReaderLabel)
+	p := xpp.NewXMLPullParser(feed, false, shared.NewReaderLabel)
 
 	_, err := shared.FindRoot(p)
 	if err != nil {
@@ -43,7 +41,7 @@ func (rp *Parser) parseRoot(p *xpp.XMLPullParser) (*Feed, error) {
 	ver := rp.parseVersion(p)
 
 	for {
-		tok, err := p.NextTag()
+		tok, err := shared.NextTag(p)
 		if err != nil {
 			return nil, err
 		}
@@ -65,7 +63,6 @@ func (rp *Parser) parseRoot(p *xpp.XMLPullParser) (*Feed, error) {
 			if name == "channel" {
 				channel, err = rp.parseChannel(p)
 				if err != nil {
-					fmt.Printf("error in channel: %s\n", err)
 					return nil, err
 				}
 			} else if name == "item" {
@@ -130,7 +127,7 @@ func (rp *Parser) parseChannel(p *xpp.XMLPullParser) (rss *Feed, err error) {
 	categories := []*Category{}
 
 	for {
-		tok, err := p.NextTag()
+		tok, err := shared.NextTag(p)
 		if err != nil {
 			return nil, err
 		}
@@ -321,7 +318,7 @@ func (rp *Parser) parseItem(p *xpp.XMLPullParser) (item *Item, err error) {
 	categories := []*Category{}
 
 	for {
-		tok, err := p.NextTag()
+		tok, err := shared.NextTag(p)
 		if err != nil {
 			return nil, err
 		}
@@ -352,6 +349,15 @@ func (rp *Parser) parseItem(p *xpp.XMLPullParser) (item *Item, err error) {
 					return nil, err
 				}
 				item.Description = result
+			} else if name == "encoded" {
+				space := strings.TrimSpace(p.Space)
+				if prefix, ok := p.Spaces[space]; ok && prefix == "content" {
+					result, err := shared.ParseText(p)
+					if err != nil {
+						return nil, err
+					}
+					item.Content = result
+				}
 			} else if name == "link" {
 				result, err := shared.ParseText(p)
 				if err != nil {
@@ -486,7 +492,7 @@ func (rp *Parser) parseImage(p *xpp.XMLPullParser) (image *Image, err error) {
 	image = &Image{}
 
 	for {
-		tok, err := p.NextTag()
+		tok, err := shared.NextTag(p)
 		if err != nil {
 			return image, err
 		}
@@ -598,7 +604,7 @@ func (rp *Parser) parseTextInput(p *xpp.XMLPullParser) (*TextInput, error) {
 	ti := &TextInput{}
 
 	for {
-		tok, err := p.NextTag()
+		tok, err := shared.NextTag(p)
 		if err != nil {
 			return nil, err
 		}
@@ -655,7 +661,7 @@ func (rp *Parser) parseSkipHours(p *xpp.XMLPullParser) ([]string, error) {
 	hours := []string{}
 
 	for {
-		tok, err := p.NextTag()
+		tok, err := shared.NextTag(p)
 		if err != nil {
 			return nil, err
 		}
@@ -693,7 +699,7 @@ func (rp *Parser) parseSkipDays(p *xpp.XMLPullParser) ([]string, error) {
 	days := []string{}
 
 	for {
-		tok, err := p.NextTag()
+		tok, err := shared.NextTag(p)
 		if err != nil {
 			return nil, err
 		}
@@ -735,7 +741,7 @@ func (rp *Parser) parseCloud(p *xpp.XMLPullParser) (*Cloud, error) {
 	cloud.RegisterProcedure = p.Attribute("registerProcedure")
 	cloud.Protocol = p.Attribute("protocol")
 
-	p.NextTag()
+	shared.NextTag(p)
 
 	if err := p.Expect(xpp.EndTag, "cloud"); err != nil {
 		return nil, err

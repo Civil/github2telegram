@@ -8,15 +8,29 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"github.com/pkg/errors"
 )
 
-const (
-	telegeramApiUrl string = "https://api.telegram.org/bot%s/%s"
-)
+type user struct {
+	id int
+	username string
+}
+
+type handler func (tokens []string, update *tgbotapi.Update) error
+
+type handlerWithDescription struct {
+	f handler
+	description string
+}
+
+var errUnauthorized = errors.New("unauthorized action")
 
 type TelegramEndpoint struct {
 	api    *tgbotapi.BotAPI
-	admins map[int64][]int
+	admins map[int64][]user
+
+	logger *zap.Logger
+	commands map[string]handlerWithDescription
 }
 
 func initializeTelegramEndpoint(token string) (*TelegramEndpoint, error) {
@@ -28,20 +42,44 @@ func initializeTelegramEndpoint(token string) (*TelegramEndpoint, error) {
 	}
 	bot.Debug = true
 
-	log.Info("Authorized on account",
+	log.Debug("Always authorized on account",
 		zap.String("account", bot.Self.UserName),
 	)
 
-	return &TelegramEndpoint{
+	e := &TelegramEndpoint{
 		api:    bot,
-		admins: make(map[int64][]int),
-	}, nil
-  
-  
+		admins: make(map[int64][]user),
+		logger: logger,
+	}
+
+	e.commands = map[string]handlerWithDescription{
+		"/new": {
+			f: e.handlerNew,
+			description: "`/new repo filter_name filter_regexp` -- creates new available subscription",
+		},
+		"/subscribe": {
+			f: e.handlerSubscribe,
+			description: "`/subscribe repo filter_name` -- subscribe current channel to specific repo and filter",
+		},
+		"/unsubscribe": {
+			f: e.handlerUnsubscribe,
+			description: "`/unsubscribe repo filter_name`  -- unsubscribe current channel to specific repo and filter",
+		},
+		"/list": {
+			f: e.handlerList,
+			description: "`/list` -- lists all available repos",
+		},
+		"/help": {
+			f: e.handlerHelp,
+			description: "`/help` -- display current help",
+		},
+	}
+
+	return e, nil
 }
 
 func (e *TelegramEndpoint) Send(url, filter, message string) error {
-	logger := zapwriter.Logger("telegram_send")
+	logger := e.logger.With(zap.String("handler", "send"))
 	ids, err := getEndpointInfo("telegram", url, filter)
 	logger.Info("endpoint info",
 		zap.Error(err),
@@ -62,6 +100,7 @@ func (e *TelegramEndpoint) Send(url, filter, message string) error {
 
 func (e *TelegramEndpoint) sendMessage(chatID int64, messageID int, message string) {
 	msg := tgbotapi.NewMessage(chatID, message)
+	msg.ParseMode = tgbotapi.ModeMarkdown
 	if messageID != 0 {
 		msg.ReplyToMessageID = messageID
 	}
@@ -69,10 +108,11 @@ func (e *TelegramEndpoint) sendMessage(chatID int64, messageID int, message stri
 	e.api.Send(msg)
 }
 
-func (e *TelegramEndpoint) checkUserAccess(update *tgbotapi.Update) bool {
-	logger := zapwriter.Logger("accessChecker")
-	chatID := update.Message.Chat.ID
+// returns true if user can issue commands
+func (e *TelegramEndpoint) checkAuthorized(update *tgbotapi.Update) bool {
 	if !update.Message.Chat.IsPrivate() {
+		logger := e.logger.With(zap.String("handler", "accessChecker"))
+		chatID := update.Message.Chat.ID
 		admins, ok := e.admins[chatID]
 		if !ok {
 			members, err := e.api.GetChatAdministrators(update.Message.Chat.ChatConfig())
@@ -82,20 +122,181 @@ func (e *TelegramEndpoint) checkUserAccess(update *tgbotapi.Update) bool {
 				)
 			}
 			for _, m := range members {
-				admins = append(admins, m.User.ID)
+				admins = append(admins, user{m.User.ID, m.User.UserName})
 			}
 			e.admins[chatID] = admins
 		}
 
-		for _, id := range admins {
-			if id == update.Message.From.ID {
+		logger.Debug("list of admins",
+			zap.Any("admins", admins),
+			)
+
+		for _, user := range admins {
+			if user.id == update.Message.From.ID {
 				return true
 			}
 		}
-		return false
+		return update.Message.From.UserName == config.AdminUsername
 	}
 
 	return true
+}
+
+func (e *TelegramEndpoint) handlerNew(tokens []string, update *tgbotapi.Update) error {
+	if !e.checkAuthorized(update) {
+		return errUnauthorized
+	}
+	if len(tokens) != 4 {
+		return errors.New("Not enough arguments\n\nUsage: /new repo_name filter_name filter_regex [message_pattern (will replace first '%s' with feed name]")
+	}
+
+	feed := Feed{
+		Repo:   tokens[1],
+		Name:   tokens[2],
+		Filter: tokens[3],
+	}
+
+	// TODO: Fix parser and allow to specify custom messages
+	if len(tokens) == 5 {
+		feed.MessagePattern = tokens[4]
+	} else {
+		feed.MessagePattern = "https://github.com/%v/releases/%v was tagged"
+	}
+
+	_, err := regexp.Compile(feed.Filter)
+	if err != nil {
+		return errors.Wrap(err, "invalid regexp")
+	}
+
+	tmp := fmt.Sprintf(feed.MessagePattern, feed.Repo, "1.0")
+	if strings.Contains(tmp, "%!") {
+		return errors.New("Invalid message pattern!")
+	}
+
+	err = addFeed(feed)
+	if err != nil {
+		return errors.Wrap(err, "error adding feed")
+	}
+
+	e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "done")
+	return nil
+}
+
+func isFilterExists(url, filterName string) bool {
+	config.RLock()
+	defer config.RUnlock()
+	for _, feed := range config.feedsConfig {
+		if feed.Repo == url {
+			for _, feedFilter := range feed.Filters {
+				if feedFilter.Name == filterName {
+					return true
+					break
+				}
+			}
+		}
+	}
+	return false
+}
+
+func (e *TelegramEndpoint) handlerSubscribe(tokens []string, update *tgbotapi.Update) error {
+	logger := e.logger.With(zap.String("handler", "subscription"))
+	if !e.checkAuthorized(update) {
+		return errUnauthorized
+	}
+
+	if len(tokens) != 3 {
+		return errors.New("/subscribe requires exactly 2 arguments")
+	}
+
+	url := tokens[1]
+	filterName := tokens[2]
+
+	found := isFilterExists(url, filterName)
+
+	if !found {
+		return errors.New("unknown combination of url and filter, use /list to get list of possible feeds")
+	}
+
+	chatID := update.Message.Chat.ID
+	err := addSubscribtion("telegram", url, filterName, chatID)
+	if err != nil {
+		if err == errAlreadyExists {
+			return errors.New("already subscribed")
+		}
+
+		logger.Error("error adding subscription",
+			zap.String("endpoint", "telegram"),
+			zap.String("url", url),
+			zap.String("filter_name", filterName),
+			zap.Int64("chat_id", chatID),
+			zap.Error(err),
+		)
+		return errors.New("error occurred while trying to subscribe")
+	}
+
+	e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "successfully subscribed")
+	return nil
+}
+
+func (e *TelegramEndpoint) handlerUnsubscribe(tokens []string, update *tgbotapi.Update) error {
+	logger := e.logger.With(zap.String("handler", "unsubscribe"))
+	if !e.checkAuthorized(update) {
+		return errUnauthorized
+	}
+
+	if len(tokens) != 3 {
+		return errors.New("/unsubscribe requires exactly 3 arguments")
+	}
+
+	url := tokens[1]
+	filterName := tokens[2]
+
+	found := isFilterExists(url, filterName)
+
+	if !found {
+		return errors.New("Unknown combination of url and filter, use /list to get list of possible feeds")
+	}
+
+	chatID := update.Message.Chat.ID
+	err := removeSubscribtion("telegram", url, filterName, chatID)
+	if err != nil {
+		logger.Error("error removing subscription",
+			zap.String("endpoint", "telegram"),
+			zap.String("url", url),
+			zap.String("filter_name", filterName),
+			zap.Int64("chat_id", chatID),
+			zap.Error(err),
+		)
+
+		return errors.New("error occurred while trying to subscribe")
+	}
+
+	e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "successfully unsubscribed")
+	return nil
+}
+
+func (e *TelegramEndpoint) handlerList(tokens []string, update *tgbotapi.Update) error {
+	response := "Configured feeds:\n"
+	config.RLock()
+	for _, feed := range config.feedsConfig {
+		for _, feedFilter := range feed.Filters {
+			response = response + feed.Repo + ": " + feedFilter.Name + "\n"
+		}
+	}
+	config.RUnlock()
+
+	e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, response)
+	return nil
+}
+
+func (e *TelegramEndpoint) handlerHelp(tokens []string, update *tgbotapi.Update) error {
+	response := ""
+	for _, v := range e.commands {
+		response = response + v.description + "\n"
+	}
+
+	e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, response)
+	return nil
 }
 
 func (e *TelegramEndpoint) Process() {
@@ -107,9 +308,10 @@ func (e *TelegramEndpoint) Process() {
 	for {
 		updates, err := e.api.GetUpdatesChan(u)
 		if err != nil {
-			logger.Fatal("Unknown error occured",
+			logger.Error("unknown error occurred",
 				zap.Error(err),
 			)
+			continue
 		}
 
 		for update := range updates {
@@ -117,7 +319,7 @@ func (e *TelegramEndpoint) Process() {
 				continue
 			}
 
-			logger.Info("got message",
+			logger.Debug("got message",
 				zap.String("from", update.Message.From.UserName),
 				zap.String("text", update.Message.Text),
 			)
@@ -125,176 +327,12 @@ func (e *TelegramEndpoint) Process() {
 			tokens := strings.Split(update.Message.Text, " ")
 
 			var m string
-			switch tokens[0] {
-			case "/new":
-				if !e.checkUserAccess(&update) {
-					m = "Unauthorized action"
-					break
-				}
-				if len(tokens) != 4 {
-					m = "Usage: /new repo_name filter_name filter_regex [message_pattern (will replace first '%s' with feed name]"
-					break
-				}
-
-				feed := Feed{
-					Repo:   tokens[1],
-					Name:   tokens[2],
-					Filter: tokens[3],
-				}
-
-				m = "Success!"
-				// TODO: Fix parser and allow to specify custom messages
-				if len(tokens) == 5 {
-					feed.MessagePattern = tokens[4]
-				} else {
-					feed.MessagePattern = "https://github.com/%v/releases/%v was tagged"
-				}
-
-				_, err := regexp.Compile(feed.Filter)
+			cmd, ok := e.commands[tokens[0]]
+			if ok {
+				err = cmd.f(tokens, &update)
 				if err != nil {
-					m = "Invalid regexp"
-					break
+					m = err.Error()
 				}
-
-				tmp := fmt.Sprintf(feed.MessagePattern, feed.Repo, "1.0")
-				if strings.Contains(tmp, "%!") {
-					m = "Invalid message pattern!"
-					break
-				}
-
-				err = addFeed(feed)
-				if err != nil {
-					m = "Error adding feed: " + err.Error()
-					break
-				}
-			case "/subscribe":
-				if !e.checkUserAccess(&update) {
-					m = "Unauthorized action"
-					break
-				}
-
-				if len(tokens) != 3 {
-					m = "/subscribe requires exactly 2 arguments"
-					break
-				}
-
-				url := tokens[1]
-				filterName := tokens[2]
-
-				found := false
-
-				config.RLock()
-				for _, feed := range config.feedsConfig {
-					if feed.Repo == url {
-						for _, feedFilter := range feed.Filters {
-							if feedFilter.Name == filterName {
-								found = true
-								break
-							}
-						}
-						if found {
-							break
-						}
-					}
-				}
-				config.RUnlock()
-
-				if !found {
-					m = "Unknown combination of url and filter, use /list to get list of possible feeds"
-					break
-				}
-
-				chatID := update.Message.Chat.ID
-				err = addSubscribtion("telegram", url, filterName, chatID)
-				if err != nil {
-					if err == errAlreadyExists {
-						m = "Already subscribed"
-						break
-					}
-
-					logger.Error("error adding subscription",
-						zap.String("endpoint", "telegram"),
-						zap.String("url", url),
-						zap.String("filter_name", filterName),
-						zap.Int64("chat_id", chatID),
-						zap.Error(err),
-					)
-					m = "Error occured while trying to subscribe"
-					break
-				}
-
-				m = "Success!"
-			case "/unsubscribe":
-				if !e.checkUserAccess(&update) {
-					m = "Unauthorized action"
-					break
-				}
-
-				if len(tokens) != 3 {
-					m = "/unsubscribe requires exactly 3 arguments"
-					break
-				}
-
-				url := tokens[1]
-				filterName := tokens[2]
-
-				found := false
-
-				config.RLock()
-				for _, feed := range config.feedsConfig {
-					if feed.Repo == url {
-						for _, feedFilter := range feed.Filters {
-							if feedFilter.Name == filterName {
-								found = true
-								break
-							}
-						}
-						if found {
-							break
-						}
-					}
-				}
-				config.RUnlock()
-
-				if !found {
-					m = "Unknown combination of url and filter, use /list to get list of possible feeds"
-					break
-				}
-
-				chatID := update.Message.Chat.ID
-				err = removeSubscribtion("telegram", url, filterName, chatID)
-				if err != nil {
-					logger.Error("error removing subscription",
-						zap.String("endpoint", "telegram"),
-						zap.String("url", url),
-						zap.String("filter_name", filterName),
-						zap.Int64("chat_id", chatID),
-						zap.Error(err),
-					)
-
-					m = "Error occured while trying to subscribe"
-					break
-				}
-
-				m = "Success!"
-			case "/subscriptions":
-				m = "Not implemented yet!"
-			case "/list":
-				response := "Configured feeds:\n"
-				config.RLock()
-				for _, feed := range config.feedsConfig {
-					for _, feedFilter := range feed.Filters {
-						response = response + feed.Repo + ": " + feedFilter.Name + "\n"
-					}
-				}
-				config.RUnlock()
-				m = response
-			case "/help":
-				m = `supported commands:
-	/new repo filter_name filter_regexp [message_pattern]
-	/subscribe repo filter_name
-	/unsubscribe repo filter_name
-	/list`
 			}
 
 			if m != "" {

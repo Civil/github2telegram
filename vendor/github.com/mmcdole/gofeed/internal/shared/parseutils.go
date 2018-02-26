@@ -1,8 +1,11 @@
 package shared
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/mmcdole/goxpp"
@@ -13,6 +16,9 @@ var (
 	nameEmailRgx = regexp.MustCompile(`^([^@]+)\s+\(([^@]+@[^)]+)\)$`)
 	nameOnlyRgx  = regexp.MustCompile(`^([^@()]+)$`)
 	emailOnlyRgx = regexp.MustCompile(`^([^@()]+@[^@()]+)$`)
+
+	TruncatedEntity         = errors.New("truncated entity")
+	InvalidNumericReference = errors.New("invalid numeric reference")
 )
 
 // FindRoot iterates through the tokens of an xml document until
@@ -31,6 +37,29 @@ func FindRoot(p *xpp.XMLPullParser) (event xpp.XMLEventType, err error) {
 		if event == xpp.EndDocument {
 			return event, fmt.Errorf("Failed to find root node before document end.")
 		}
+	}
+	return
+}
+
+// NextTag iterates through the tokens until it reaches a StartTag or EndTag
+// It is similar to goxpp's NextTag method except it wont throw an error if
+// the next immediate token isnt a Start/EndTag.  Instead, it will continue to
+// consume tokens until it hits a Start/EndTag or EndDocument.
+func NextTag(p *xpp.XMLPullParser) (event xpp.XMLEventType, err error) {
+	for {
+		event, err = p.Next()
+		if err != nil {
+			return event, err
+		}
+
+		if event == xpp.StartTag || event == xpp.EndTag {
+			break
+		}
+
+		if event == xpp.EndDocument {
+			return event, fmt.Errorf("Failed to find NextTag before reaching the end of the document.")
+		}
+
 	}
 	return
 }
@@ -60,19 +89,84 @@ func ParseText(p *xpp.XMLPullParser) (string, error) {
 		return result, nil
 	}
 
-	result = DecodeEntities(result)
-	return result, nil
+	return DecodeEntities(result)
 }
 
 // DecodeEntities decodes escaped XML entities
 // in a string and returns the unescaped string
-func DecodeEntities(str string) string {
-	str = strings.Replace(str, "&lt;", "<", -1)
-	str = strings.Replace(str, "&gt;", ">", -1)
-	str = strings.Replace(str, "&quot;", "\"", -1)
-	str = strings.Replace(str, "&apos;", "'", -1)
-	str = strings.Replace(str, "&amp;", "&", -1)
-	return str
+func DecodeEntities(str string) (string, error) {
+	data := []byte(str)
+	buf := bytes.NewBuffer([]byte{})
+
+	for len(data) > 0 {
+		// Find the next entity
+		idx := bytes.IndexByte(data, '&')
+		if idx == -1 {
+			buf.Write(data)
+			break
+		}
+
+		// Write and skip everything before it
+		buf.Write(data[:idx])
+		data = data[idx+1:]
+
+		if len(data) == 0 {
+			return "", TruncatedEntity
+		}
+
+		// Find the end of the entity
+		end := bytes.IndexByte(data, ';')
+		if end == -1 {
+			return "", TruncatedEntity
+		}
+
+		if data[0] == '#' {
+			// Numerical character reference
+			var str string
+			base := 10
+
+			if len(data) > 1 && data[1] == 'x' {
+				str = string(data[2:end])
+				base = 16
+			} else {
+				str = string(data[1:end])
+			}
+
+			i, err := strconv.ParseUint(str, base, 32)
+			if err != nil {
+				return "", InvalidNumericReference
+			}
+
+			buf.WriteRune(rune(i))
+		} else {
+			// Predefined entity
+			name := string(data[:end])
+
+			var c byte
+			switch name {
+			case "lt":
+				c = '<'
+			case "gt":
+				c = '>'
+			case "quot":
+				c = '"'
+			case "apos":
+				c = '\''
+			case "amp":
+				c = '&'
+			default:
+				return "", fmt.Errorf("unknown predefined "+
+					"entity &%s;", name)
+			}
+
+			buf.WriteByte(c)
+		}
+
+		// Skip the entity
+		data = data[end+1:]
+	}
+
+	return buf.String(), nil
 }
 
 // ParseNameAddress parses name/email strings commonly

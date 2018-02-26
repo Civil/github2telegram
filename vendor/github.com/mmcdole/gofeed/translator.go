@@ -49,6 +49,8 @@ func (t *DefaultRSSTranslator) Translate(feed interface{}) (*Feed, error) {
 	result.Generator = t.translateFeedGenerator(rss)
 	result.Categories = t.translateFeedCategories(rss)
 	result.Items = t.translateFeedItems(rss)
+	result.ITunesExt = rss.ITunesExt
+	result.DublinCoreExt = rss.DublinCoreExt
 	result.Extensions = rss.Extensions
 	result.FeedVersion = rss.Version
 	result.FeedType = "rss"
@@ -59,6 +61,7 @@ func (t *DefaultRSSTranslator) translateFeedItem(rssItem *rss.Item) (item *Item)
 	item = &Item{}
 	item.Title = t.translateItemTitle(rssItem)
 	item.Description = t.translateItemDescription(rssItem)
+	item.Content = t.translateItemContent(rssItem)
 	item.Link = t.translateItemLink(rssItem)
 	item.Published = t.translateItemPublished(rssItem)
 	item.PublishedParsed = t.translateItemPublishedParsed(rssItem)
@@ -67,6 +70,8 @@ func (t *DefaultRSSTranslator) translateFeedItem(rssItem *rss.Item) (item *Item)
 	item.Image = t.translateItemImage(rssItem)
 	item.Categories = t.translateItemCategories(rssItem)
 	item.Enclosures = t.translateItemEnclosures(rssItem)
+	item.DublinCoreExt = rssItem.DublinCoreExt
+	item.ITunesExt = rssItem.ITunesExt
 	item.Extensions = rssItem.Extensions
 	return
 }
@@ -266,6 +271,10 @@ func (t *DefaultRSSTranslator) translateItemDescription(rssItem *rss.Item) (desc
 	return
 }
 
+func (t *DefaultRSSTranslator) translateItemContent(rssItem *rss.Item) (content string) {
+	return rssItem.Content
+}
+
 func (t *DefaultRSSTranslator) translateItemLink(rssItem *rss.Item) (link string) {
 	return rssItem.Link
 }
@@ -288,12 +297,26 @@ func (t *DefaultRSSTranslator) translateItemUpdatedParsed(rssItem *rss.Item) (up
 	return
 }
 
-func (t *DefaultRSSTranslator) translateItemPublished(rssItem *rss.Item) (updated string) {
-	return rssItem.PubDate
+func (t *DefaultRSSTranslator) translateItemPublished(rssItem *rss.Item) (pubDate string) {
+	if rssItem.PubDate != "" {
+		return rssItem.PubDate
+	} else if rssItem.DublinCoreExt != nil && rssItem.DublinCoreExt.Date != nil {
+		return t.firstEntry(rssItem.DublinCoreExt.Date)
+	}
+	return
 }
 
-func (t *DefaultRSSTranslator) translateItemPublishedParsed(rssItem *rss.Item) (updated *time.Time) {
-	return rssItem.PubDateParsed
+func (t *DefaultRSSTranslator) translateItemPublishedParsed(rssItem *rss.Item) (pubDate *time.Time) {
+	if rssItem.PubDateParsed != nil {
+		return rssItem.PubDateParsed
+	} else if rssItem.DublinCoreExt != nil && rssItem.DublinCoreExt.Date != nil {
+		pubDateText := t.firstEntry(rssItem.DublinCoreExt.Date)
+		pubDateParsed, err := shared.ParseDate(pubDateText)
+		if err == nil {
+			pubDate = &pubDateParsed
+		}
+	}
+	return
 }
 
 func (t *DefaultRSSTranslator) translateItemAuthor(rssItem *rss.Item) (author *Person) {

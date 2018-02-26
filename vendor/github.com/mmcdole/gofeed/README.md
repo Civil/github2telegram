@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/mmcdole/gofeed.svg?branch=master)](https://travis-ci.org/mmcdole/gofeed) [![Coverage Status](https://coveralls.io/repos/github/mmcdole/gofeed/badge.svg?branch=master)](https://coveralls.io/github/mmcdole/gofeed?branch=master) [![Go Report Card](https://goreportcard.com/badge/github.com/mmcdole/gofeed)](https://goreportcard.com/report/github.com/mmcdole/gofeed) [![](https://godoc.org/github.com/mmcdole/gofeed?status.svg)](http://godoc.org/github.com/mmcdole/gofeed) [![License](http://img.shields.io/:license-mit-blue.svg)](http://doge.mit-license.org)
 
-The `gofeed` library is a robust feed parser that supports parsing both [RSS](https://en.wikipedia.org/wiki/RSS) and [Atom](https://en.wikipedia.org/wiki/Atom_(standard)) feeds.  The universal ```gofeed.Parser``` will parse and convert all feed types into a hybrid ```gofeed.Feed``` model.  You also have the option of parsing them into their respective ```atom.Feed``` and ```rss.Feed``` models using the feed specific ```atom.Parser``` or ```rss.Parser```.  
+The `gofeed` library is a robust feed parser that supports parsing both [RSS](https://en.wikipedia.org/wiki/RSS) and [Atom](https://en.wikipedia.org/wiki/Atom_(standard)) feeds.  The universal `gofeed.Parser` will parse and convert all feed types into a hybrid `gofeed.Feed` model.  You also have the option of parsing them into their respective `atom.Feed` and `rss.Feed` models using the feed specific `atom.Parser` or `rss.Parser`.  
 
 ##### Supported feed types:
 * RSS 0.90
@@ -16,7 +16,7 @@ The `gofeed` library is a robust feed parser that supports parsing both [RSS](ht
 * Atom 0.3
 * Atom 1.0
 
-It also provides support for parsing several popular extension modules, including [Dublin Core](http://dublincore.org/documents/dces/) and [Apple’s iTunes](https://help.apple.com/itc/podcasts_connect/#/itcb54353390) extensions.  See the [Extensions](#extensions) section for more details.
+It also provides support for parsing several popular predefined extension modules, including [Dublin Core](http://dublincore.org/documents/dces/) and [Apple’s iTunes](https://help.apple.com/itc/podcasts_connect/#/itcb54353390), as well as arbitrary extensions.  See the [Extensions](#extensions) section for more details.
 
 ## Table of Contents
 - [Overview](#overview)
@@ -27,6 +27,7 @@ It also provides support for parsing several popular extension modules, includin
 - [Default Mappings](#default-mappings)
 - [Dependencies](#dependencies)
 - [License](#license)
+- [Donate](#donate)
 - [Credits](#credits)
 
 ## Overview
@@ -35,7 +36,7 @@ It also provides support for parsing several popular extension modules, includin
 
 The universal `gofeed.Parser` works in 3 stages: detection, parsing and translation.  It first detects the feed type that it is currently parsing.  Then it uses a feed specific parser to parse the feed into its true representation which will be either a `rss.Feed` or `atom.Feed`.  These models cover every field possible for their respective feed types.  Finally, they are *translated* into a `gofeed.Feed` model that is a hybrid of both feed types.  Performing the universal feed parsing in these 3 stages allows for more flexibility and keeps the code base more maintainable by separating RSS and Atom parsing into seperate packages.
 
-![Diagram](https://raw.githubusercontent.com/mmcdole/gofeed/master/docs/sequence.png)
+![Diagram](docs/sequence.png)
 
 The translation step is done by anything which adheres to the `gofeed.Translator` interface.  The `DefaultRSSTranslator` and `DefaultAtomTranslator` are used behind the scenes when you use the `gofeed.Parser` with its default settings.  You can see how they translate fields from ```atom.Feed``` or ```rss.Feed``` to the universal ```gofeed.Feed``` struct in the [Default Mappings](#default-mappings) section.  However, should you disagree with the way certain fields are translated you can easily supply your own `gofeed.Translator` and override this behavior.  See the [Advanced Usage](#advanced-usage) section for an example how to do this.
 
@@ -121,8 +122,16 @@ Here is a simple example of creating a custom `Translator` that makes the `/rss/
 First we must define a custom translator:
 
 ```go
+
+import (
+    "fmt"
+
+    "github.com/mmcdole/gofeed"
+    "github.com/mmcdole/gofeed/rss"
+)
+
 type MyCustomTranslator struct {
-    defaultTranslator *DefaultRSSTranslator
+    defaultTranslator *gofeed.DefaultRSSTranslator
 }
 
 func NewMyCustomTranslator() *MyCustomTranslator {
@@ -130,17 +139,17 @@ func NewMyCustomTranslator() *MyCustomTranslator {
   
   // We create a DefaultRSSTranslator internally so we can wrap its Translate
   // call since we only want to modify the precedence for a single field.
-  t.defaultTranslator = &DefaultRSSTranslator{}
+  t.defaultTranslator = &gofeed.DefaultRSSTranslator{}
   return t
 }
 
-func (ct* MyCustomTranslator) Translate(feed interface{}) (*Feed, error) {
+func (ct* MyCustomTranslator) Translate(feed interface{}) (*gofeed.Feed, error) {
 	rss, found := feed.(*rss.Feed)
 	if !found {
 		return nil, fmt.Errorf("Feed did not match expected type of *rss.Feed")
 	}
 
-  f, err := ct.Translate(rss)
+  f, err := ct.defaultTranslator.Translate(rss)
   if err != nil {
     return nil, err
   }
@@ -165,7 +174,7 @@ feedData := `<rss version="2.0">
 </rss>`
     
 fp := gofeed.NewParser()
-fp.RSSTrans = NewMyCustomTranslator()
+fp.RSSTranslator = NewMyCustomTranslator()
 feed, _ := fp.ParseString(feedData)
 fmt.Println(feed.Author) // Valentine Wiggin
 ```
@@ -214,7 +223,7 @@ Description | /rss/channel/item/description<br>/rdf:RDF/item/description<br>/rss
 Content | | /feed/entry/content
 Link | /rss/channel/item/link<br>/rdf:RDF/item/link | /feed/entry/link[@rel=”alternate”]/@href<br>/feed/entry/link[not(@rel)]/@href
 Updated | /rss/channel/item/dc:date<br>/rdf:RDF/rdf:item/dc:date | /feed/entry/modified<br>/feed/entry/updated
-Published | /rss/channel/item/pubDate | /feed/entry/published<br>/feed/entry/issued
+Published | /rss/channel/item/pubDate<br>/rss/channel/item/dc:date | /feed/entry/published<br>/feed/entry/issued
 Author | /rss/channel/item/author<br>/rss/channel/item/dc:author<br>/rdf:RDF/item/dc:author<br>/rss/channel/item/dc:creator<br>/rdf:RDF/item/dc:creator<br>/rss/channel/item/itunes:author | /feed/entry/author
 Guid |  /rss/channel/item/guid | /feed/entry/id
 Image | /rss/channel/item/itunes:image<br>/rss/channel/item/media:image |
@@ -231,9 +240,15 @@ Enclosures | /rss/channel/item/enclosure | /feed/entry/link[@rel=”enclosure”
 
 This project is licensed under the [MIT License](https://raw.githubusercontent.com/mmcdole/gofeed/master/LICENSE)
 
+## Donate
+
+I write open source software for fun. However, if you want to buy me a beer because you found something I wrote useful, feel free!
+
+Bitcoin: 1CXrjBBkxgVNgKXRAq5MnsR7zzZbHvUHkJ
+
 ## Credits
 
-* [Mark Pilgrim](https://en.wikipedia.org/wiki/Mark_Pilgrim) for his work on the excellent [Universal Feed Parser](https://github.com/kurtmckee/feedparser) Python library.  This library was referenced several times during the development of `gofeed`.  Many of its unit test cases were also ported to the `gofeed` project as well.
+* [Mark Pilgrim](https://en.wikipedia.org/wiki/Mark_Pilgrim) and [Kurt McKee](http://kurtmckee.org) for their work on the excellent [Universal Feed Parser](https://github.com/kurtmckee/feedparser) Python library.  This library was the inspiration for the `gofeed` library.
 * [Dan MacTough](http://blog.mact.me) for his work on [node-feedparser](https://github.com/danmactough/node-feedparser).  It provided inspiration for the set of fields that should be covered in the hybrid `gofeed.Feed` model.
 * [Matt Jibson](https://mattjibson.com/) for his date parsing function in the [goread](https://github.com/mjibson/goread) project.
 * [Jim Teeuwen](https://github.com/jteeuwen) for his method of representing arbitrary feed extensions in the [go-pkg-rss](https://github.com/jteeuwen/go-pkg-rss) library.
