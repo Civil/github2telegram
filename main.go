@@ -23,7 +23,7 @@ import (
 var DefaultLoggerConfig = zapwriter.Config{
 	Logger:           "",
 	File:             "stdout",
-	Level:            "info",
+	Level:            "debug",
 	Encoding:         "json",
 	EncodingTime:     "iso8601",
 	EncodingDuration: "seconds",
@@ -67,12 +67,13 @@ var config = struct {
 	DatabaseLogin    string
 	DatabasePassword string
 	AdminUsername    string
+	PollingInterval  time.Duration
 
 	Endpoints       map[string]NotificationConfig
 	db              *sql.DB
 	wg              sync.WaitGroup
 	senders         map[string]NotificationEndpoints
-	feedsConfig     []FeedsConfig
+	feedsConfig     []*FeedsConfig
 	currentId       int
 	processingFeeds map[string]bool
 }{
@@ -87,6 +88,7 @@ var config = struct {
 	Logger:          []zapwriter.Config{DefaultLoggerConfig},
 	DatabaseType:    "sqlite3",
 	DatabaseURL:     "./github2telegram.db",
+	PollingInterval: 5 * time.Minute,
 	processingFeeds: make(map[string]bool),
 }
 
@@ -191,7 +193,7 @@ func updateFeeds(feeds []*Feed) {
 		var cfg *FeedsConfig
 		for i := range config.feedsConfig {
 			if config.feedsConfig[i].Repo == feed.Repo {
-				cfg = &config.feedsConfig[i]
+				cfg = config.feedsConfig[i]
 				break
 			}
 		}
@@ -205,9 +207,9 @@ func updateFeeds(feeds []*Feed) {
 				continue
 			}
 
-			cfg := FeedsConfig{
+			feed.cfg = FeedsConfig{
 				Repo:            feed.Repo,
-				PollingInterval: 15 * time.Minute,
+				PollingInterval: config.PollingInterval,
 				Filters: []FiltersConfig{{
 					Name:           feed.Name,
 					Filter:         feed.Filter,
@@ -216,7 +218,7 @@ func updateFeeds(feeds []*Feed) {
 				}},
 			}
 
-			config.feedsConfig = append(config.feedsConfig, cfg)
+			config.feedsConfig = append(config.feedsConfig, &feed.cfg)
 			continue
 		}
 		cfg.Filters = append(cfg.Filters, FiltersConfig{
@@ -225,6 +227,10 @@ func updateFeeds(feeds []*Feed) {
 			MessagePattern: feed.MessagePattern,
 		})
 	}
+
+	logger.Debug("feeds initialized",
+		zap.Any("feeds", feeds),
+	)
 
 	for _, feed := range feeds {
 		config.wg.Add(1)
@@ -320,9 +326,12 @@ func main() {
 
 	updateFeeds(feeds)
 
+	go func() {
+		err := http.ListenAndServe(config.Listen, nil)
+		logger.Fatal("error creating http server",
+			zap.Error(err),
+		)
+	}()
+
 	config.wg.Wait()
-	err = http.ListenAndServe(config.Listen, nil)
-	logger.Fatal("error creating http server",
-		zap.Error(err),
-	)
 }

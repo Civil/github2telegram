@@ -64,6 +64,11 @@ func (f *Feed) SetCfg(cfg FeedsConfig) {
 func (f *Feed) ProcessFeed() {
 	cfg := f.cfg
 
+	if len(cfg.Filters) == 0 {
+		f.logger.Warn("no filters to process, exiting")
+		return
+	}
+
 	url := "https://github.com/" + f.Repo + "/releases.atom"
 
 	// Initialize
@@ -73,7 +78,7 @@ func (f *Feed) ProcessFeed() {
 
 	fp := gofeed.NewParser()
 	if cfg.PollingInterval == 0 {
-		cfg.PollingInterval = 15 * time.Minute
+		cfg.PollingInterval = config.PollingInterval
 	}
 
 	delay := time.Duration(rand.Int()) % cfg.PollingInterval
@@ -82,7 +87,9 @@ func (f *Feed) ProcessFeed() {
 	f.logger.Info("will process feed",
 		zap.Duration("extra_delay", delay),
 		zap.Time("nextRun", nextRun),
+		zap.Int("filters", len(cfg.Filters)),
 	)
+
 	for {
 		dt := time.Until(nextRun)
 		if dt > 0 {
@@ -96,7 +103,7 @@ func (f *Feed) ProcessFeed() {
 
 		feed, err := fp.ParseURL(url)
 		if err != nil {
-			f.logger.Info("done", zap.Duration("runtime", time.Since(t0)),
+			f.logger.Info("feed fetch failed ", zap.Duration("runtime", time.Since(t0)),
 				zap.Duration("runtime", time.Since(t0)),
 				zap.Time("nextRun", nextRun),
 				zap.Time("now", t0),
@@ -105,12 +112,22 @@ func (f *Feed) ProcessFeed() {
 			continue
 		}
 
+		f.logger.Debug("received some data",
+			zap.Int("items", len(feed.Items)),
+		)
+
 		processedFilters := 0
 		for _, item := range feed.Items {
 			f.logger.Debug("processing item",
 				zap.String("title", item.Title),
+				zap.Int("filters defined", len(cfg.Filters)),
 			)
 			for i := range cfg.Filters {
+				f.logger.Debug("testing for filter",
+					zap.String("filter", cfg.Filters[i].Filter),
+					zap.Time("filter_last_update_time", cfg.Filters[i].lastUpdateTime),
+					zap.Time("item_update_time", *item.UpdatedParsed),
+				)
 				if cfg.Filters[i].lastUpdateTime.Unix() >= item.UpdatedParsed.Unix() {
 					cfg.Filters[i].filterProcessed = true
 				}
@@ -121,9 +138,6 @@ func (f *Feed) ProcessFeed() {
 					)
 					continue
 				}
-				f.logger.Debug("testing for filter",
-					zap.String("filter", cfg.Filters[i].Filter),
-				)
 				if cfg.Filters[i].filterRegex.MatchString(item.Title) {
 					notification := cfg.Repo + " was tagged: " + item.Title + "\nLink: " + item.Link
 
@@ -138,16 +152,16 @@ func (f *Feed) ProcessFeed() {
 
 					methods, err := getNotificationMethods(cfg.Repo, cfg.Filters[i].Name)
 					if err != nil {
-						f.logger.Info("error",
+						f.logger.Error("error sending notification",
 							zap.Error(err),
 						)
-					} else {
-						f.logger.Info("notifications",
-							zap.Strings("methods", methods),
-						)
-						for _, m := range methods {
-							config.senders[m].Send(cfg.Repo, cfg.Filters[i].Name, notification)
-						}
+						continue
+					}
+					f.logger.Debug("notifications",
+						zap.Strings("methods", methods),
+					)
+					for _, m := range methods {
+						config.senders[m].Send(cfg.Repo, cfg.Filters[i].Name, notification)
 					}
 
 					cfg.Filters[i].filterProcessed = true
