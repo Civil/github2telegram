@@ -93,9 +93,7 @@ func (e *TelegramEndpoint) Send(url, filter, message string) error {
 	}
 
 	for _, id := range ids {
-		msg := tgbotapi.NewMessage(id, message)
-
-		e.api.Send(msg)
+		e.sendMessage(id, 0, message)
 	}
 
 	return nil
@@ -149,7 +147,7 @@ func (e *TelegramEndpoint) handlerNew(tokens []string, update *tgbotapi.Update) 
 	if !e.checkAuthorized(update) {
 		return errUnauthorized
 	}
-	if len(tokens) != 4 {
+	if len(tokens) < 3 {
 		return errors.New("Not enough arguments\n\nUsage: /new repo_name filter_name filter_regex [message_pattern (will replace first '%s' with feed name]")
 	}
 
@@ -275,7 +273,7 @@ func (e *TelegramEndpoint) handlerList(tokens []string, update *tgbotapi.Update)
 	config.RLock()
 	for _, feed := range config.feedsConfig {
 		for _, feedFilter := range feed.Filters {
-			response = response + feed.Repo + ": " + feedFilter.Name + "\n"
+			response = response + "`" + feed.Repo + "`: `" + feedFilter.Name + "`\n"
 		}
 	}
 	config.RUnlock()

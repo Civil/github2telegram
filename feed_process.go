@@ -8,6 +8,7 @@ import (
 	"github.com/mmcdole/gofeed"
 	"go.uber.org/zap"
 	"math/rand"
+	"strings"
 )
 
 type UpdateType int
@@ -138,16 +139,34 @@ func (f *Feed) ProcessFeed() {
 					)
 					continue
 				}
+				if cfg.Filters[i].filterRegex == nil {
+					f.logger.Error("regex not defined for package",
+						zap.Int("filter_id", i),
+						zap.String("filter", cfg.Filters[i].Filter),
+						zap.String("reason", "some bug caused filter not to be defined. This should never happen"),
+					)
+					continue
+				}
 				if cfg.Filters[i].filterRegex.MatchString(item.Title) {
+					contentTruncated := false
 					notification := cfg.Repo + " was tagged: " + item.Title + "\nLink: " + item.Link
 
-					if len(item.Content) != 0 && item.Content != item.Title {
-						notification += "\nRelease notes:\n" + html2md.Convert(item.Content)
+					content := html2md.Convert(item.Content)
+					if len(content) > 250 {
+						content = content[:250] + "..."
+						contentTruncated = true
+					}
+					content = strings.Replace(content, "```", "", 0)
+
+					notification += "\nRelease notes:\n```\n" + content + "\n```"
+					if contentTruncated {
+						notification += "[More](" + item.Link + ")"
 					}
 
 					f.logger.Info("release tagged",
 						zap.String("release", item.Title),
 						zap.String("notification", notification),
+						zap.String("content", item.Content),
 					)
 
 					methods, err := getNotificationMethods(cfg.Repo, cfg.Filters[i].Name)
