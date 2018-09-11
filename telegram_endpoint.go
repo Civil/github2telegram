@@ -147,7 +147,7 @@ func (e *TelegramEndpoint) handlerNew(tokens []string, update *tgbotapi.Update) 
 	if !e.checkAuthorized(update) {
 		return errUnauthorized
 	}
-	if len(tokens) < 3 {
+	if len(tokens) < 4 {
 		return errors.New("Not enough arguments\n\nUsage: /new repo_name filter_name filter_regex [message_pattern (will replace first '%s' with feed name]")
 	}
 
