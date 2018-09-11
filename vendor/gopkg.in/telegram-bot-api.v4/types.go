@@ -232,9 +232,9 @@ func (m *Message) CommandArguments() string {
 	entity := (*m.Entities)[0]
 	if len(m.Text) == entity.Length {
 		return "" // The command makes up the whole message
-	} else {
-		return m.Text[entity.Length+1:]
 	}
+
+	return m.Text[entity.Length+1:]
 }
 
 // MessageEntity contains information about data in a Message.
@@ -410,7 +410,7 @@ type InlineKeyboardButton struct {
 	SwitchInlineQuery            *string       `json:"switch_inline_query,omitempty"`              // optional
 	SwitchInlineQueryCurrentChat *string       `json:"switch_inline_query_current_chat,omitempty"` // optional
 	CallbackGame                 *CallbackGame `json:"callback_game,omitempty"`                    // optional
-	Pay                          bool          `json:"pay,omitempty"`			       // optional
+	Pay                          bool          `json:"pay,omitempty"`                              // optional
 }
 
 // CallbackQuery is data sent when a keyboard button with callback data
@@ -657,7 +657,7 @@ type InlineQueryResultGame struct {
 	Type          string                `json:"type"`
 	ID            string                `json:"id"`
 	GameShortName string                `json:"game_short_name"`
-	ReplyMarkup   *InlineKeyboardMarkup `json:"reply_markup"`
+	ReplyMarkup   *InlineKeyboardMarkup `json:"reply_markup,omitempty"`
 }
 
 // ChosenInlineResult is an inline query result chosen by a User
@@ -770,4 +770,14 @@ type PreCheckoutQuery struct {
 	InvoicePayload   string     `json:"invoice_payload"`
 	ShippingOptionID string     `json:"shipping_option_id,omitempty"`
 	OrderInfo        *OrderInfo `json:"order_info,omitempty"`
+}
+
+// Error is an error containing extra information returned by the Telegram API.
+type Error struct {
+	Message string
+	ResponseParameters
+}
+
+func (e Error) Error() string {
+	return e.Message
 }
