@@ -1,6 +1,10 @@
-package main
+package feeds
 
 import (
+	"github.com/Civil/github2telegram/configs"
+	"github.com/Civil/github2telegram/db"
+	"github.com/pkg/errors"
+	"regexp"
 	"time"
 
 	"github.com/lomik/zapwriter"
@@ -11,22 +15,62 @@ import (
 	"strings"
 )
 
-type UpdateType int
+func UpdateFeeds(feeds []*Feed) {
+	logger := zapwriter.Logger("updateFeeds")
+	configs.Config.Lock()
+	defer configs.Config.Unlock()
 
-const (
-	NewRelease UpdateType = iota
-	Retag
-	DescriptionChange
-)
+	for _, feed := range feeds {
+		logger.Debug("will initialize feeds",
+			zap.Any("feed", feed),
+		)
+		var cfg *configs.FeedsConfig
+		for i := range configs.Config.FeedsConfig {
+			if configs.Config.FeedsConfig[i].Repo == feed.Repo {
+				cfg = configs.Config.FeedsConfig[i]
+				break
+			}
+		}
+		if cfg == nil {
+			re, err := regexp.Compile(feed.Filter)
+			if err != nil {
+				logger.Error("failed to compile regex",
+					zap.String("filter", feed.Filter),
+					zap.Error(err),
+				)
+				continue
+			}
 
-type Update struct {
-	Type   UpdateType
-	Repo   string
-	Filter string
+			feed.cfg = configs.FeedsConfig{
+				Repo:            feed.Repo,
+				PollingInterval: configs.Config.PollingInterval,
+				Filters: []configs.FiltersConfig{{
+					Name:           feed.Name,
+					Filter:         feed.Filter,
+					MessagePattern: feed.MessagePattern,
+					FilterRegex:    re,
+				}},
+			}
 
-	Title   string
-	Content string
-	Link    string
+			configs.Config.FeedsConfig = append(configs.Config.FeedsConfig, &feed.cfg)
+			continue
+		}
+		cfg.Filters = append(cfg.Filters, configs.FiltersConfig{
+			Name:           feed.Name,
+			Filter:         feed.Filter,
+			MessagePattern: feed.MessagePattern,
+		})
+	}
+
+	logger.Debug("feeds initialized",
+		zap.Any("feeds", feeds),
+	)
+
+	for _, feed := range feeds {
+		go func(f *Feed) {
+			f.ProcessFeed()
+		}(feed)
+	}
 }
 
 type Feed struct {
@@ -36,12 +80,19 @@ type Feed struct {
 	Name           string
 	MessagePattern string
 
+	db db.Database
 	lastUpdateTime time.Time
 	logger         *zap.Logger
-	cfg            FeedsConfig
+	cfg            configs.FeedsConfig
 }
 
-func NewFeed(id int, repo, filter, name, messagePattern string) (*Feed, error) {
+func NewFeed(repo, filter, name, messagePattern string, database db.Database) (*Feed, error) {
+
+	id, err := database.AddFeed(name, repo, filter, messagePattern)
+	if err != nil && err != db.ErrAlreadyExists {
+		return nil, errors.Wrap(err, "error adding feed")
+	}
+
 	return &Feed{
 		Id:             id,
 		Repo:           repo,
@@ -49,8 +100,8 @@ func NewFeed(id int, repo, filter, name, messagePattern string) (*Feed, error) {
 		Name:           name,
 		MessagePattern: messagePattern,
 
+		db: database,
 		lastUpdateTime: time.Unix(0, 0),
-
 		logger: zapwriter.Logger("main").With(
 			zap.String("feed_repo", repo),
 			zap.Int("id", id),
@@ -58,7 +109,7 @@ func NewFeed(id int, repo, filter, name, messagePattern string) (*Feed, error) {
 	}, nil
 }
 
-func (f *Feed) SetCfg(cfg FeedsConfig) {
+func (f *Feed) SetCfg(cfg configs.FeedsConfig) {
 	f.cfg = cfg
 }
 
@@ -74,12 +125,12 @@ func (f *Feed) ProcessFeed() {
 
 	// Initialize
 	for i := range cfg.Filters {
-		cfg.Filters[i].lastUpdateTime = getLastUpdateTime(url, cfg.Filters[i].Filter)
+		cfg.Filters[i].LastUpdateTime = f.db.GetLastUpdateTime(url, cfg.Filters[i].Filter)
 	}
 
 	fp := gofeed.NewParser()
 	if cfg.PollingInterval == 0 {
-		cfg.PollingInterval = config.PollingInterval
+		cfg.PollingInterval = configs.Config.PollingInterval
 	}
 
 	delay := time.Duration(rand.Int()) % cfg.PollingInterval
@@ -99,7 +150,7 @@ func (f *Feed) ProcessFeed() {
 		nextRun = nextRun.Add(cfg.PollingInterval)
 		t0 = time.Now()
 		for i := range cfg.Filters {
-			cfg.Filters[i].filterProcessed = false
+			cfg.Filters[i].FilterProcessed = false
 		}
 
 		feed, err := fp.ParseURL(url)
@@ -126,20 +177,20 @@ func (f *Feed) ProcessFeed() {
 			for i := range cfg.Filters {
 				f.logger.Debug("testing for filter",
 					zap.String("filter", cfg.Filters[i].Filter),
-					zap.Time("filter_last_update_time", cfg.Filters[i].lastUpdateTime),
+					zap.Time("filter_last_update_time", cfg.Filters[i].LastUpdateTime),
 					zap.Time("item_update_time", *item.UpdatedParsed),
 				)
-				if cfg.Filters[i].lastUpdateTime.Unix() >= item.UpdatedParsed.Unix() {
-					cfg.Filters[i].filterProcessed = true
+				if cfg.Filters[i].LastUpdateTime.Unix() >= item.UpdatedParsed.Unix() {
+					cfg.Filters[i].FilterProcessed = true
 				}
-				if cfg.Filters[i].filterProcessed {
+				if cfg.Filters[i].FilterProcessed {
 					f.logger.Debug("item already processed by this filter",
 						zap.String("title", item.Title),
 						zap.String("filter", cfg.Filters[i].Filter),
 					)
 					continue
 				}
-				if cfg.Filters[i].filterRegex == nil {
+				if cfg.Filters[i].FilterRegex == nil {
 					f.logger.Error("regex not defined for package",
 						zap.Int("filter_id", i),
 						zap.String("filter", cfg.Filters[i].Filter),
@@ -147,7 +198,7 @@ func (f *Feed) ProcessFeed() {
 					)
 					continue
 				}
-				if cfg.Filters[i].filterRegex.MatchString(item.Title) {
+				if cfg.Filters[i].FilterRegex.MatchString(item.Title) {
 					contentTruncated := false
 					notification := cfg.Repo + " was tagged: " + item.Title + "\nLink: " + item.Link
 
@@ -169,7 +220,7 @@ func (f *Feed) ProcessFeed() {
 						zap.String("content", item.Content),
 					)
 
-					methods, err := getNotificationMethods(cfg.Repo, cfg.Filters[i].Name)
+					methods, err := f.db.GetNotificationMethods(cfg.Repo, cfg.Filters[i].Name)
 					if err != nil {
 						f.logger.Error("error sending notification",
 							zap.Error(err),
@@ -180,12 +231,16 @@ func (f *Feed) ProcessFeed() {
 						zap.Strings("methods", methods),
 					)
 					for _, m := range methods {
-						config.senders[m].Send(cfg.Repo, cfg.Filters[i].Name, notification)
+						f.logger.Debug("will notify",
+							zap.String("method", m),
+							zap.Any("senders", configs.Config.Senders),
+							)
+						configs.Config.Senders[m].Send(cfg.Repo, cfg.Filters[i].Name, notification)
 					}
 
-					cfg.Filters[i].filterProcessed = true
-					cfg.Filters[i].lastUpdateTime = *item.UpdatedParsed
-					updateLastUpdateTime(url, cfg.Filters[i].Filter, cfg.Filters[i].lastUpdateTime)
+					cfg.Filters[i].FilterProcessed = true
+					cfg.Filters[i].LastUpdateTime = *item.UpdatedParsed
+					f.db.UpdateLastUpdateTime(url, cfg.Filters[i].Filter, cfg.Filters[i].LastUpdateTime)
 				}
 			}
 

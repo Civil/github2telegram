@@ -1,6 +1,9 @@
-package main
+package endpoints
 
 import (
+	"github.com/Civil/github2telegram/configs"
+	"github.com/Civil/github2telegram/db"
+	"github.com/Civil/github2telegram/feeds"
 	"github.com/lomik/zapwriter"
 	"go.uber.org/zap"
 	"gopkg.in/telegram-bot-api.v4"
@@ -9,6 +12,10 @@ import (
 	"github.com/pkg/errors"
 	"regexp"
 	"strings"
+)
+
+const (
+	TelegramEndpointName = "telegram"
 )
 
 type user struct {
@@ -28,6 +35,7 @@ var errUnauthorized = errors.New("unauthorized action")
 type TelegramEndpoint struct {
 	api    *tgbotapi.BotAPI
 	admins map[int64][]user
+	db db.Database
 
 	logger   *zap.Logger
 	commands map[string]handlerWithDescription
@@ -35,16 +43,15 @@ type TelegramEndpoint struct {
 	exitChan <-chan struct{}
 }
 
-func initializeTelegramEndpoint(token string, exitChan <-chan struct{}) (*TelegramEndpoint, error) {
-	logger := zapwriter.Logger("telegram")
-	log := logger
+func InitializeTelegramEndpoint(token string, exitChan <-chan struct{}, database db.Database) (*TelegramEndpoint, error) {
+	logger := zapwriter.Logger(TelegramEndpointName)
 	bot, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		return nil, err
 	}
 	bot.Debug = true
 
-	log.Debug("Always authorized on account",
+	logger.Debug("Always authorized on account",
 		zap.String("account", bot.Self.UserName),
 	)
 
@@ -53,6 +60,7 @@ func initializeTelegramEndpoint(token string, exitChan <-chan struct{}) (*Telegr
 		admins:   make(map[int64][]user),
 		logger:   logger,
 		exitChan: exitChan,
+		db: database,
 	}
 
 	e.commands = map[string]handlerWithDescription{
@@ -83,7 +91,7 @@ func initializeTelegramEndpoint(token string, exitChan <-chan struct{}) (*Telegr
 
 func (e *TelegramEndpoint) Send(url, filter, message string) error {
 	logger := e.logger.With(zap.String("handler", "send"))
-	ids, err := getEndpointInfo("telegram", url, filter)
+	ids, err := e.db.GetEndpointInfo(TelegramEndpointName, url, filter)
 	logger.Info("endpoint info",
 		zap.Error(err),
 		zap.Int64s("ids", ids),
@@ -137,7 +145,7 @@ func (e *TelegramEndpoint) checkAuthorized(update *tgbotapi.Update) bool {
 				return true
 			}
 		}
-		return update.Message.From.UserName == config.AdminUsername
+		return update.Message.From.UserName == configs.Config.AdminUsername
 	}
 
 	return true
@@ -166,19 +174,21 @@ func (e *TelegramEndpoint) handlerNew(tokens []string, update *tgbotapi.Update) 
 		return errors.New("Invalid message pattern!")
 	}
 
-	err = addFeed(name, repo, filter, pattern)
+	feed, err := feeds.NewFeed(repo, filter, name, pattern, e.db)
 	if err != nil {
-		return errors.Wrap(err, "error adding feed")
+		return err
 	}
+
+	feeds.UpdateFeeds([]*feeds.Feed{feed})
 
 	e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "done")
 	return nil
 }
 
 func isFilterExists(url, filterName string) bool {
-	config.RLock()
-	defer config.RUnlock()
-	for _, feed := range config.feedsConfig {
+	configs.Config.RLock()
+	defer configs.Config.RUnlock()
+	for _, feed := range configs.Config.FeedsConfig {
 		if feed.Repo == url {
 			for _, feedFilter := range feed.Filters {
 				if feedFilter.Name == filterName {
@@ -211,14 +221,14 @@ func (e *TelegramEndpoint) handlerSubscribe(tokens []string, update *tgbotapi.Up
 	}
 
 	chatID := update.Message.Chat.ID
-	err := addSubscribtion("telegram", url, filterName, chatID)
+	err := e.db.AddSubscribtion(TelegramEndpointName, url, filterName, chatID)
 	if err != nil {
-		if err == errAlreadyExists {
+		if err == db.ErrAlreadyExists {
 			return errors.New("already subscribed")
 		}
 
 		logger.Error("error adding subscription",
-			zap.String("endpoint", "telegram"),
+			zap.String("endpoint", TelegramEndpointName),
 			zap.String("url", url),
 			zap.String("filter_name", filterName),
 			zap.Int64("chat_id", chatID),
@@ -251,10 +261,10 @@ func (e *TelegramEndpoint) handlerUnsubscribe(tokens []string, update *tgbotapi.
 	}
 
 	chatID := update.Message.Chat.ID
-	err := removeSubscribtion("telegram", url, filterName, chatID)
+	err := e.db.RemoveSubscribtion(TelegramEndpointName, url, filterName, chatID)
 	if err != nil {
 		logger.Error("error removing subscription",
-			zap.String("endpoint", "telegram"),
+			zap.String("endpoint", TelegramEndpointName),
 			zap.String("url", url),
 			zap.String("filter_name", filterName),
 			zap.Int64("chat_id", chatID),
@@ -270,13 +280,13 @@ func (e *TelegramEndpoint) handlerUnsubscribe(tokens []string, update *tgbotapi.
 
 func (e *TelegramEndpoint) handlerList(tokens []string, update *tgbotapi.Update) error {
 	response := "Configured feeds:\n"
-	config.RLock()
-	for _, feed := range config.feedsConfig {
+	configs.Config.RLock()
+	for _, feed := range configs.Config.FeedsConfig {
 		for _, feedFilter := range feed.Filters {
 			response = response + "`" + feed.Repo + "`: `" + feedFilter.Name + "`\n"
 		}
 	}
-	config.RUnlock()
+	configs.Config.RUnlock()
 
 	e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, response)
 	return nil
@@ -293,7 +303,7 @@ func (e *TelegramEndpoint) handlerHelp(tokens []string, update *tgbotapi.Update)
 }
 
 func (e *TelegramEndpoint) Process() {
-	logger := zapwriter.Logger("telegram")
+	logger := zapwriter.Logger(TelegramEndpointName)
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60

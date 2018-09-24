@@ -15,6 +15,8 @@ database_login: ''
 database_password: ''
 # Username that will have access to bot controls. Currently only one can be specified
 admin_username: "your_telegram_nick"
+# Please note, that github might ban bot if you are polling too quick, safe option is about 10 minutes for moderate amount of feeds (100)
+polling_interval: "30m"
 endpoints:
   # Currently only telegram is supported
   telegram:

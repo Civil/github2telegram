@@ -1,16 +1,32 @@
-package main
+package db
 
 import (
+	"database/sql"
 	"fmt"
+	"time"
+
 	"github.com/lomik/zapwriter"
 	"go.uber.org/zap"
-	"time"
 )
 
-func getLastUpdateTime(url, filter string) time.Time {
+type SQLite struct {
+	db *sql.DB
+}
+
+func NewSQLite(db *sql.DB) *SQLite {
+	return &SQLite{
+		db: db,
+	}
+}
+
+var ErrAlreadyExists error = fmt.Errorf("Already exists")
+
+
+// GetLastUpdateTime - gets Last Update Time
+func (d *SQLite) GetLastUpdateTime(url, filter string) time.Time {
 	t, _ := time.Parse("2006-01-02", "1970-01-01")
 	logger := zapwriter.Logger("get_date")
-	stmt, err := config.db.Prepare("SELECT date from 'last_version' where url=? and filter=?")
+	stmt, err := d.db.Prepare("SELECT date from 'last_version' where url=? and filter=?")
 	if err != nil {
 		logger.Error("error creating statement",
 			zap.Error(err),
@@ -37,66 +53,61 @@ func getLastUpdateTime(url, filter string) time.Time {
 	return t
 }
 
-var errAlreadyExists error = fmt.Errorf("Already exists")
-
-func addFeed(name, repo, filter, messagePattern string) error {
-	stmt, err := config.db.Prepare("SELECT id FROM 'feeds' where name=? and repo=?;")
+func (d *SQLite) AddFeed(name, repo, filter, messagePattern string) (int, error) {
+	stmt, err := d.db.Prepare("SELECT id FROM 'feeds' where name=? and repo=?;")
 	if err != nil {
-		return err
+		return -1, err
 	}
 
 	rows, err := stmt.Query(name, repo)
 	if err != nil {
-		return err
+		return -1, err
 	}
 
+	var id int
 	if rows.Next() {
+		err = rows.Scan(&id)
+		if err != nil {
+			return -1, err
+		}
 		rows.Close()
-		return errAlreadyExists
+		return id, ErrAlreadyExists
 	}
 	rows.Close()
 
-	stmt, err = config.db.Prepare("INSERT INTO 'feeds' (name, repo, filter, message_pattern) VALUES (?, ?, ?, ?)")
+	stmt, err = d.db.Prepare("INSERT INTO 'feeds' (name, repo, filter, message_pattern) VALUES (?, ?, ?, ?)")
 	if err != nil {
-		return err
+		return -1, err
 	}
 
 	_, err = stmt.Exec(name, repo, filter, messagePattern)
 	if err != nil {
-		return err
+		return -1, err
 	}
 
-	var id int
-	stmt, err = config.db.Prepare("SELECT id FROM 'feeds' where name=? and repo=?;")
+	stmt, err = d.db.Prepare("SELECT id FROM 'feeds' where name=? and repo=?;")
 	if err != nil {
-		return err
+		return -1, err
 	}
 
 	rows, err = stmt.Query(name, repo)
 	if err != nil {
-		return err
+		return -1, err
 	}
 
 	if rows.Next() {
 		err = rows.Scan(&id)
 		if err != nil {
-			return err
+			return -1, err
 		}
 	}
 	rows.Close()
 
-	feed, err := NewFeed(id, repo, filter, name, messagePattern)
-	if err != nil {
-		return err
-	}
-
-	updateFeeds([]*Feed{feed})
-
-	return nil
+	return id, nil
 }
 
-func getFeed(name string) (*Feed, error) {
-	stmt, err := config.db.Prepare("SELECT name, repo, filter, message_pattern FROM 'feeds' WHERE name=?;")
+func (d *SQLite) GetFeed(name string) (*Feed, error) {
+	stmt, err := d.db.Prepare("SELECT name, repo, filter, message_pattern FROM 'feeds' WHERE name=?;")
 	if err != nil {
 		return nil, err
 	}
@@ -118,8 +129,8 @@ func getFeed(name string) (*Feed, error) {
 	return result, nil
 }
 
-func listFeeds() ([]*Feed, error) {
-	rows, err := config.db.Query("SELECT id, name, repo, filter, message_pattern FROM 'feeds';")
+func (d *SQLite) ListFeeds() ([]*Feed, error) {
+	rows, err := d.db.Query("SELECT id, name, repo, filter, message_pattern FROM 'feeds';")
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +144,7 @@ func listFeeds() ([]*Feed, error) {
 			continue
 		}
 
-		f, err := NewFeed(id, repo, filter, name, pattern)
+		f := &Feed{id, repo, filter, name, pattern}
 		if err != nil {
 			continue
 		}
@@ -144,8 +155,8 @@ func listFeeds() ([]*Feed, error) {
 	return result, nil
 }
 
-func addSubscribtion(endpoint, url, filter string, chatID int64) error {
-	stmt, err := config.db.Prepare("SELECT chat_id FROM 'subscriptions' where endpoint=? and url=? and filter=? and chat_id=?;")
+func (d *SQLite) AddSubscribtion(endpoint, url, filter string, chatID int64) error {
+	stmt, err := d.db.Prepare("SELECT chat_id FROM 'subscriptions' where endpoint=? and url=? and filter=? and chat_id=?;")
 	if err != nil {
 		return err
 	}
@@ -157,11 +168,11 @@ func addSubscribtion(endpoint, url, filter string, chatID int64) error {
 
 	if rows.Next() {
 		rows.Close()
-		return errAlreadyExists
+		return ErrAlreadyExists
 	}
 	rows.Close()
 
-	stmt, err = config.db.Prepare("INSERT INTO 'subscriptions' (endpoint, url, filter, chat_id) VALUES (?, ?, ?, ?)")
+	stmt, err = d.db.Prepare("INSERT INTO 'subscriptions' (endpoint, url, filter, chat_id) VALUES (?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -171,8 +182,8 @@ func addSubscribtion(endpoint, url, filter string, chatID int64) error {
 	return err
 }
 
-func removeSubscribtion(endpoint, url, filter string, chatID int64) error {
-	stmt, err := config.db.Prepare("DELETE FROM 'subscriptions' WHERE endpoint=? and url=? and filter=? and chat_id=?")
+func (d *SQLite) RemoveSubscribtion(endpoint, url, filter string, chatID int64) error {
+	stmt, err := d.db.Prepare("DELETE FROM 'subscriptions' WHERE endpoint=? and url=? and filter=? and chat_id=?")
 	if err != nil {
 		return err
 	}
@@ -182,13 +193,13 @@ func removeSubscribtion(endpoint, url, filter string, chatID int64) error {
 	return err
 }
 
-func getNotificationMethods(url, filter string) ([]string, error) {
+func (d *SQLite) GetNotificationMethods(url, filter string) ([]string, error) {
 	logger := zapwriter.Logger("get_notification_method")
 	logger.Info("",
 		zap.String("url", url),
 		zap.String("filter", filter),
 	)
-	stmt, err := config.db.Prepare("SELECT DISTINCT endpoint FROM 'subscriptions' where url=? and filter=?;")
+	stmt, err := d.db.Prepare("SELECT DISTINCT endpoint FROM 'subscriptions' where url=? and filter=?;")
 	if err != nil {
 		return nil, err
 	}
@@ -215,14 +226,14 @@ func getNotificationMethods(url, filter string) ([]string, error) {
 	return result, nil
 }
 
-func getEndpointInfo(endpoint, url, filter string) ([]int64, error) {
+func (d *SQLite) GetEndpointInfo(endpoint, url, filter string) ([]int64, error) {
 	logger := zapwriter.Logger("get_endpoint_info")
 	logger.Info("",
 		zap.String("endpoint", endpoint),
 		zap.String("url", url),
 		zap.String("filter", filter),
 	)
-	stmt, err := config.db.Prepare("SELECT chat_id FROM 'subscriptions' where endpoint=? and url=? and filter=?;")
+	stmt, err := d.db.Prepare("SELECT chat_id FROM 'subscriptions' where endpoint=? and url=? and filter=?;")
 	if err != nil {
 		return nil, err
 	}
@@ -249,10 +260,10 @@ func getEndpointInfo(endpoint, url, filter string) ([]int64, error) {
 	return result, nil
 }
 
-func updateLastUpdateTime(url, filter string, t time.Time) {
+func (d *SQLite) UpdateLastUpdateTime(url, filter string, t time.Time) {
 	logger := zapwriter.Logger("updater")
 	id := -1
-	stmt, err := config.db.Prepare("SELECT id FROM 'last_version' where url=? and filter=?;")
+	stmt, err := d.db.Prepare("SELECT id FROM 'last_version' where url=? and filter=?;")
 	if err != nil {
 		logger.Error("error creating statement to get current id",
 			zap.Error(err),
@@ -278,9 +289,9 @@ func updateLastUpdateTime(url, filter string, t time.Time) {
 	rows.Close()
 
 	if id != -1 {
-		stmt, err = config.db.Prepare("UPDATE 'last_version' SET date=? where id=?")
+		stmt, err = d.db.Prepare("UPDATE 'last_version' SET date=? where id=?")
 	} else {
-		stmt, err = config.db.Prepare("INSERT INTO 'last_version' (url, filter, date) VALUES (?, ?, ?)")
+		stmt, err = d.db.Prepare("INSERT INTO 'last_version' (url, filter, date) VALUES (?, ?, ?)")
 	}
 	if err != nil {
 		logger.Error("error creating statement",
