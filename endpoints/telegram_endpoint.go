@@ -336,6 +336,14 @@ func (e *TelegramEndpoint) Process() {
 
 			var m string
 			cmd, ok := e.commands[tokens[0]]
+			if !ok {
+				tokens2 := strings.Split(tokens[0], "@")
+				if len(tokens2) > 1 {
+					if tokens2[1] == e.api.Self.UserName {
+						cmd, ok = e.commands[tokens2[0]]
+					}
+				}
+			}
 			if ok {
 				err = cmd.f(tokens, &update)
 				if err != nil {
