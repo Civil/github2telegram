@@ -21,7 +21,6 @@ func NewSQLite(db *sql.DB) *SQLite {
 
 var ErrAlreadyExists error = fmt.Errorf("Already exists")
 
-
 // GetLastUpdateTime - gets Last Update Time
 func (d *SQLite) GetLastUpdateTime(url, filter string) time.Time {
 	t, _ := time.Parse("2006-01-02", "1970-01-01")
@@ -51,6 +50,37 @@ func (d *SQLite) GetLastUpdateTime(url, filter string) time.Time {
 	}
 	rows.Close()
 	return t
+}
+
+// GetLastTag - gets Last Tag
+func (d *SQLite) GetLastTag(url, filter string) string {
+	var tag string
+	logger := zapwriter.Logger("get_last_tag")
+	stmt, err := d.db.Prepare("SELECT last_tag from 'last_version' where url=? and filter=?")
+	if err != nil {
+		logger.Error("error creating statement",
+			zap.Error(err),
+		)
+		return tag
+	}
+	rows, err := stmt.Query(url, filter)
+	if err != nil {
+		logger.Error("error retreiving data",
+			zap.Error(err),
+		)
+		return tag
+	}
+	for rows.Next() {
+		err = rows.Scan(&tag)
+		if err != nil {
+			logger.Error("error retreiving data",
+				zap.Error(err),
+			)
+			break
+		}
+	}
+	rows.Close()
+	return tag
 }
 
 func (d *SQLite) AddFeed(name, repo, filter, messagePattern string) (int, error) {
@@ -260,7 +290,7 @@ func (d *SQLite) GetEndpointInfo(endpoint, url, filter string) ([]int64, error) 
 	return result, nil
 }
 
-func (d *SQLite) UpdateLastUpdateTime(url, filter string, t time.Time) {
+func (d *SQLite) UpdateLastUpdateTime(url, filter string, t time.Time, tag string) {
 	logger := zapwriter.Logger("updater")
 	id := -1
 	stmt, err := d.db.Prepare("SELECT id FROM 'last_version' where url=? and filter=?;")
@@ -289,9 +319,9 @@ func (d *SQLite) UpdateLastUpdateTime(url, filter string, t time.Time) {
 	rows.Close()
 
 	if id != -1 {
-		stmt, err = d.db.Prepare("UPDATE 'last_version' SET date=? where id=?")
+		stmt, err = d.db.Prepare("UPDATE 'last_version' SET date=?, last_tag=? where id=?")
 	} else {
-		stmt, err = d.db.Prepare("INSERT INTO 'last_version' (url, filter, date) VALUES (?, ?, ?)")
+		stmt, err = d.db.Prepare("INSERT INTO 'last_version' (url, filter, date, last_tag) VALUES (?, ?, ?, ?)")
 	}
 	if err != nil {
 		logger.Error("error creating statement",
@@ -301,9 +331,9 @@ func (d *SQLite) UpdateLastUpdateTime(url, filter string, t time.Time) {
 	}
 
 	if id != -1 {
-		_, err = stmt.Exec(t, id)
+		_, err = stmt.Exec(t, id, tag)
 	} else {
-		_, err = stmt.Exec(url, filter, t)
+		_, err = stmt.Exec(url, filter, t, tag)
 	}
 	if err != nil {
 		logger.Error("error updating data",

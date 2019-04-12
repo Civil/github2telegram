@@ -1,18 +1,20 @@
 package feeds
 
 import (
+	"regexp"
+	"time"
+
 	"github.com/Civil/github2telegram/configs"
 	"github.com/Civil/github2telegram/db"
 	"github.com/pkg/errors"
-	"regexp"
-	"time"
+
+	"math/rand"
+	"strings"
 
 	"github.com/lomik/zapwriter"
 	"github.com/lunny/html2md"
 	"github.com/mmcdole/gofeed"
 	"go.uber.org/zap"
-	"math/rand"
-	"strings"
 )
 
 func UpdateFeeds(feeds []*Feed) {
@@ -80,7 +82,7 @@ type Feed struct {
 	Name           string
 	MessagePattern string
 
-	db db.Database
+	db             db.Database
 	lastUpdateTime time.Time
 	logger         *zap.Logger
 	cfg            configs.FeedsConfig
@@ -100,7 +102,7 @@ func NewFeed(repo, filter, name, messagePattern string, database db.Database) (*
 		Name:           name,
 		MessagePattern: messagePattern,
 
-		db: database,
+		db:             database,
 		lastUpdateTime: time.Unix(0, 0),
 		logger: zapwriter.Logger("main").With(
 			zap.String("feed_repo", repo),
@@ -126,6 +128,7 @@ func (f *Feed) ProcessFeed() {
 	// Initialize
 	for i := range cfg.Filters {
 		cfg.Filters[i].LastUpdateTime = f.db.GetLastUpdateTime(url, cfg.Filters[i].Filter)
+		cfg.Filters[i].LastTag = f.db.GetLastTag(url, cfg.Filters[i].Filter)
 	}
 
 	fp := gofeed.NewParser()
@@ -200,7 +203,21 @@ func (f *Feed) ProcessFeed() {
 				}
 				if cfg.Filters[i].FilterRegex.MatchString(item.Title) {
 					contentTruncated := false
-					notification := cfg.Repo + " was tagged: " + item.Title + "\nLink: " + item.Link
+					var changeType UpdateType
+					var notification string
+
+					// we check here if last tag hasnt changed
+					if item.Title == cfg.Filters[i].LastTag {
+						changeType = DescriptionChange
+					} else {
+						changeType = NewRelease
+					}
+
+					if changeType == NewRelease {
+						notification += cfg.Repo + " was tagged: " + item.Title + "\nLink: " + item.Link
+					} else if changeType == DescriptionChange {
+						notification += cfg.Repo + " description  was changed: " + item.Title + "\nLink: " + item.Link
+					}
 
 					content := html2md.Convert(item.Content)
 					if len(content) > 250 {
@@ -234,13 +251,13 @@ func (f *Feed) ProcessFeed() {
 						f.logger.Debug("will notify",
 							zap.String("method", m),
 							zap.Any("senders", configs.Config.Senders),
-							)
+						)
 						configs.Config.Senders[m].Send(cfg.Repo, cfg.Filters[i].Name, notification)
 					}
 
 					cfg.Filters[i].FilterProcessed = true
 					cfg.Filters[i].LastUpdateTime = *item.UpdatedParsed
-					f.db.UpdateLastUpdateTime(url, cfg.Filters[i].Filter, cfg.Filters[i].LastUpdateTime)
+					f.db.UpdateLastUpdateTime(url, cfg.Filters[i].Filter, cfg.Filters[i].LastUpdateTime, item.Title)
 				}
 			}
 
