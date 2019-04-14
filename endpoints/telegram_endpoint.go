@@ -66,15 +66,28 @@ func InitializeTelegramEndpoint(token string, exitChan <-chan struct{}, database
 	e.commands = map[string]handlerWithDescription{
 		"/new": {
 			f:           e.handlerNew,
-			description: "`/new repo filter_name filter_regexp` -- creates new available subscription",
+			description: "`/new repo filter_name filter_regexp` -- creates new available subscription" + `
+
+Example:
+  ` + "`/new lomik/go-carbon all ^V`" + `
+
+  This will create repo named 'lomik/go-carbon', with filter called 'all' and regexp that will grab all tags that starts from capital 'V'`,
 		},
 		"/subscribe": {
 			f:           e.handlerSubscribe,
-			description: "`/subscribe repo filter_name` -- subscribe current channel to specific repo and filter",
+			description: "`/subscribe repo filter_name` -- subscribe current channel to specific repo and filter" + `
+
+Example:
+  ` + "`/subscribe lomik/go-carbon all`" + `
+`,
 		},
 		"/unsubscribe": {
 			f:           e.handlerUnsubscribe,
-			description: "`/unsubscribe repo filter_name`  -- unsubscribe current channel to specific repo and filter",
+			description: "`/unsubscribe repo filter_name`  -- unsubscribe current channel to specific repo and filter" + `
+
+Example:
+  ` + "`/unsubscribe lomik/go-carbon all`" + `
+`,
 		},
 		"/list": {
 			f:           e.handlerList,
@@ -156,7 +169,7 @@ func (e *TelegramEndpoint) handlerNew(tokens []string, update *tgbotapi.Update) 
 		return errUnauthorized
 	}
 	if len(tokens) < 4 {
-		return errors.New("Not enough arguments\n\nUsage: /new repo_name filter_name filter_regex [message_pattern (will replace first '%s' with feed name]")
+		return errors.New("Command require exactly 4 arguments\n\n" + e.commands["/new"].description)
 	}
 
 	repo := tokens[1]
@@ -208,7 +221,7 @@ func (e *TelegramEndpoint) handlerSubscribe(tokens []string, update *tgbotapi.Up
 	}
 
 	if len(tokens) != 3 {
-		return errors.New("/subscribe requires exactly 2 arguments")
+		return errors.New("/subscribe requires exactly 2 arguments.\n\n" + e.commands["/subscribe"].description)
 	}
 
 	url := tokens[1]
@@ -248,7 +261,7 @@ func (e *TelegramEndpoint) handlerUnsubscribe(tokens []string, update *tgbotapi.
 	}
 
 	if len(tokens) != 3 {
-		return errors.New("/unsubscribe requires exactly 3 arguments")
+		return errors.New("/unsubscribe requires exactly 2 arguments\n\n" + e.commands["/unsubscribe"].description)
 	}
 
 	url := tokens[1]
@@ -295,7 +308,7 @@ func (e *TelegramEndpoint) handlerList(tokens []string, update *tgbotapi.Update)
 func (e *TelegramEndpoint) handlerHelp(tokens []string, update *tgbotapi.Update) error {
 	response := ""
 	for _, v := range e.commands {
-		response = response + v.description + "\n"
+		response = response + v.description + "\n\n==============================\n\n"
 	}
 
 	e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, response)
