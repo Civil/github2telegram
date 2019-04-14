@@ -2,10 +2,11 @@ package configs
 
 import (
 	"database/sql"
-	"github.com/lomik/zapwriter"
 	"regexp"
 	"sync"
 	"time"
+
+	"github.com/lomik/zapwriter"
 )
 
 type FiltersConfig struct {
@@ -16,6 +17,7 @@ type FiltersConfig struct {
 	FilterRegex     *regexp.Regexp
 	FilterProcessed bool
 	LastUpdateTime  time.Time
+	LastTag         string
 }
 
 type NotificationConfig struct {
@@ -48,26 +50,26 @@ var DefaultLoggerConfig = zapwriter.Config{
 
 type Configuration struct {
 	sync.RWMutex
-	Listen           string `yaml:"listen"`
-	Logger           []zapwriter.Config `yaml:"logger"`
-	DatabaseType     string `yaml:"database_type"`
-	DatabaseURL      string `yaml:"database_url"`
-	DatabaseLogin    string `yaml:"database_login"`
-	DatabasePassword string `yaml:"database_password"`
-	AdminUsername    string `yaml:"admin_username"`
-	PollingInterval  time.Duration `yaml:"polling_interval"`
-	Endpoints       map[string]NotificationConfig `yaml:"endpoints"`
+	Listen           string                        `yaml:"listen"`
+	Logger           []zapwriter.Config            `yaml:"logger"`
+	DatabaseType     string                        `yaml:"database_type"`
+	DatabaseURL      string                        `yaml:"database_url"`
+	DatabaseLogin    string                        `yaml:"database_login"`
+	DatabasePassword string                        `yaml:"database_password"`
+	AdminUsername    string                        `yaml:"admin_username"`
+	PollingInterval  time.Duration                 `yaml:"polling_interval"`
+	Endpoints        map[string]NotificationConfig `yaml:"endpoints"`
 
-	DB              *sql.DB `yaml:"-"`
+	DB              *sql.DB                          `yaml:"-"`
 	Senders         map[string]NotificationEndpoints `yaml:"-"`
-	FeedsConfig     []*FeedsConfig `yaml:"-"`
-	CurrentId       int `yaml:"-"`
-	ProcessingFeeds map[string]bool `yaml:"-"`
+	FeedsConfig     []*FeedsConfig                   `yaml:"-"`
+	CurrentId       int                              `yaml:"-"`
+	ProcessingFeeds map[string]bool                  `yaml:"-"`
 }
 
 var Config = Configuration{
-	AdminUsername: "REPLACE_ME",
-	Listen:        ":8080",
+	AdminUsername:   "REPLACE_ME",
+	Listen:          ":8080",
 	Logger:          []zapwriter.Config{DefaultLoggerConfig},
 	DatabaseType:    "sqlite3",
 	DatabaseURL:     "./github2telegram.DB",
@@ -78,4 +80,3 @@ var Config = Configuration{
 func (c *Configuration) GetDB() *sql.DB {
 	return c.DB
 }
-
