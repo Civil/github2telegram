@@ -46,7 +46,7 @@ func H() *Rule {
 			}
 
 			return "\n\n" + strings.Repeat("#", hLevel) +
-				" " + attrs[2] + "\n"
+				" " + strings.Replace(strings.Replace(attrs[2], "\n", " ", -1), "\r", " ", -1) + "\n"
 		},
 	}
 }
@@ -211,7 +211,7 @@ func replaceLists(tag, html string) string {
 		return strings.Join(newLis, "\n")
 	})
 
-	return "\n\n" + regexp.MustCompile(`[ \t]+\n|\s+$`).ReplaceAllString(html, "")
+	return "\n\n" + regexp.MustCompile(`[ \t]+\n|\s+$`).ReplaceAllString(html, "\n")
 }
 
 func replaceBlockquotes(html string) string {
@@ -220,7 +220,7 @@ func replaceBlockquotes(html string) string {
 		matches := re.FindStringSubmatch(inner)
 		inner = regexp.MustCompile(`^\s+|\s+$`).ReplaceAllString(matches[1], "")
 		inner = cleanUp(inner)
-		inner = regexp.MustCompile(`^/gm`).ReplaceAllString(inner, "> ")
+		inner = regexp.MustCompile(`(?m)^`).ReplaceAllString(inner, "> ")
 		inner = regexp.MustCompile(`^(>([ \t]{2,}>)+)`).ReplaceAllString(inner, "> >")
 		return inner
 	})
@@ -317,6 +317,10 @@ func wrapInlineTag(content, openWrap, closeWrap string) string {
 		wrappedStr = wrappedStr + " "
 	}
 	return wrappedStr
+}
+
+func WrapInlineTag(content, openWrap, closeWrap string) string {
+  return wrapInlineTag(content, openWrap, closeWrap)
 }
 
 func init() {
