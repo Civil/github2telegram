@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"flag"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
@@ -17,111 +16,6 @@ import (
 	"github.com/lomik/zapwriter"
 	_ "github.com/mattn/go-sqlite3"
 )
-
-const (
-	currentSchemaVersion = 2
-)
-
-func initSqlite() db.Database {
-	var err error
-	logger := zapwriter.Logger("main")
-
-	configs.Config.DB, err = sql.Open("sqlite3", configs.Config.DatabaseURL)
-	if err != nil {
-		logger.Fatal("unable to open database file",
-			zap.Any("config", configs.Config),
-			zap.Error(err),
-		)
-	}
-
-	db := db.NewSQLite(configs.Config.DB)
-
-	rows, err := configs.Config.DB.Query("SELECT version from 'schema_version' where id=1")
-	if err != nil {
-		if err.Error() == "no such table: schema_version" {
-			_, err = configs.Config.DB.Exec(`
-					CREATE TABLE IF NOT EXISTS 'schema_version' (
-						'id' INTEGER PRIMARY KEY AUTOINCREMENT,
-						'version' INTEGER NOT NULL
-					);
-
-					CREATE TABLE IF NOT EXISTS 'last_version' (
-						'id' INTEGER PRIMARY KEY AUTOINCREMENT,
-						'url' VARCHAR(255) NOT NULL,
-						'filter' VARCHAR(255) NOT NULL,
-						'last_tag' VARCHAR(255) NOT NULL DEFAULT '',
-						'date' DATE NOT NULL
-					);
-
-					CREATE TABLE IF NOT EXISTS 'subscriptions' (
-						'id' INTEGER PRIMARY KEY AUTOINCREMENT,
-						'chat_id' Int64,
-						'endpoint' VARCHAR(255) NOT NULL,
-						'url' VARCHAR(255) NOT NULL,
-						'filter' VARCHAR(255) NOT NULL
-					);
-
-					CREATE TABLE IF NOT EXISTS 'feeds' (
-						'id' INTEGER PRIMARY KEY AUTOINCREMENT,
-						'repo' VARCHAR(255) NOT NULL,
-						'filter' VARCHAR(255) NOT NULL,
-						'name' VARCHAR(255) NOT NULL,
-						'message_pattern' VARCHAR(255) NOT NULL
-					);
-
-					INSERT INTO 'schema_version' (id, version) values (1, 2);
-				`)
-			if err != nil {
-				logger.Fatal("failed to initialize database",
-					zap.Any("config", configs.Config),
-					zap.Error(err),
-				)
-			}
-		} else {
-			logger.Fatal("failed to query database version",
-				zap.Error(err),
-			)
-		}
-	} else {
-		schemaVersion := int(0)
-		for rows.Next() {
-			err = rows.Scan(&schemaVersion)
-			if err != nil {
-				logger.Fatal("unable to fetch value",
-					zap.Error(err),
-				)
-			}
-		}
-		rows.Close()
-
-		if schemaVersion != currentSchemaVersion {
-			switch schemaVersion {
-			case 1:
-				_, err = configs.Config.DB.Exec(`
-ALTER TABLE last_version ADD COLUMN 'last_tag' VARCHAR(255) NOT NULL DEFAULT '';
-
-UPDATE schema_version SET version = 2 WHERE id=1;
-				`)
-
-				if err != nil {
-					logger.Fatal("failed to migrate database",
-						zap.Int("databaseVersion", schemaVersion),
-						zap.Int("upgradingTo", currentSchemaVersion),
-						zap.Error(err),
-					)
-				}
-				// 'last_tag' VARCHAR(255) NOT NULL DEFAULT '',
-			default:
-				// Don't know how to migrate from this version
-				logger.Fatal("Unknown schema version specified",
-					zap.Int("version", schemaVersion),
-				)
-			}
-		}
-	}
-
-	return db
-}
 
 func main() {
 	err := zapwriter.ApplyConfig([]zapwriter.Config{configs.DefaultLoggerConfig})
@@ -171,9 +65,9 @@ func main() {
 	}
 
 	// TODO: Generalize to support other databases (e.x. mysql)
-	var db db.Database
+	var database db.Database
 	if configs.Config.DatabaseType == "sqlite3" || configs.Config.DatabaseType == "sqlite" {
-		db = initSqlite()
+		database = db.NewSQLite()
 	}
 
 	exitChan := make(chan struct{})
@@ -186,7 +80,7 @@ func main() {
 			zap.Any("endpoint_config", cfg),
 		)
 		if cfg.Type == "telegram" {
-			configs.Config.Senders[name], err = endpoints.InitializeTelegramEndpoint(cfg.Token, exitChan, db)
+			configs.Config.Senders[name], err = endpoints.InitializeTelegramEndpoint(cfg.Token, exitChan, database)
 			if err != nil {
 				logger.Fatal("Error initializing telegram endpoint",
 					zap.Error(err),
@@ -212,7 +106,7 @@ func main() {
 		zap.Any("config", configs.Config),
 	)
 
-	feedsListDB, err := db.ListFeeds()
+	feedsListDB, err := database.ListFeeds()
 	if err != nil {
 		logger.Fatal("unknown error quering database",
 			zap.Error(err),
@@ -221,7 +115,7 @@ func main() {
 
 	feedsList := make([]*feeds.Feed, 0, len(feedsListDB))
 	for _, f := range feedsListDB {
-		f2, err := feeds.NewFeed(f.Repo, f.Filter, f.Name, f.MessagePattern, db)
+		f2, err := feeds.NewFeed(f.Repo, f.Filter, f.Name, f.MessagePattern, database)
 		if err != nil {
 			continue
 		}
