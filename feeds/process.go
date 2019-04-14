@@ -206,17 +206,13 @@ func (f *Feed) ProcessFeed() {
 					var changeType UpdateType
 					var notification string
 
-					// we check here if last tag hasnt changed
+					// check if last tag haven't changed
 					if item.Title == cfg.Filters[i].LastTag {
 						changeType = DescriptionChange
+						notification = cfg.Repo + " description changed: " + item.Title + "\nLink: " + item.Link
 					} else {
 						changeType = NewRelease
-					}
-
-					if changeType == NewRelease {
-						notification += cfg.Repo + " was tagged: " + item.Title + "\nLink: " + item.Link
-					} else if changeType == DescriptionChange {
-						notification += cfg.Repo + " description  was changed: " + item.Title + "\nLink: " + item.Link
+						notification = cfg.Repo + " tagged: " + item.Title + "\nLink: " + item.Link
 					}
 
 					content := html2md.Convert(item.Content)
@@ -235,6 +231,7 @@ func (f *Feed) ProcessFeed() {
 						zap.String("release", item.Title),
 						zap.String("notification", notification),
 						zap.String("content", item.Content),
+						zap.Any("changeType", changeType),
 					)
 
 					methods, err := f.db.GetNotificationMethods(cfg.Repo, cfg.Filters[i].Name)
@@ -252,12 +249,17 @@ func (f *Feed) ProcessFeed() {
 							zap.String("method", m),
 							zap.Any("senders", configs.Config.Senders),
 						)
-						configs.Config.Senders[m].Send(cfg.Repo, cfg.Filters[i].Name, notification)
+						err = configs.Config.Senders[m].Send(cfg.Repo, cfg.Filters[i].Name, notification)
+						if err != nil {
+							f.logger.Error("failed to send an update",
+								zap.Error(err),
+							)
+						}
 					}
 
 					cfg.Filters[i].FilterProcessed = true
 					cfg.Filters[i].LastUpdateTime = *item.UpdatedParsed
-					f.db.UpdateLastUpdateTime(url, cfg.Filters[i].Filter, cfg.Filters[i].LastUpdateTime, item.Title)
+					f.db.UpdateLastUpdateTime(url, cfg.Filters[i].Filter, item.Title, cfg.Filters[i].LastUpdateTime)
 				}
 			}
 

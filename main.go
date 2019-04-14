@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	current_schema_version = 1
+	currentSchemaVersion = 2
 )
 
 func initSqlite() db.Database {
@@ -49,6 +49,7 @@ func initSqlite() db.Database {
 						'id' INTEGER PRIMARY KEY AUTOINCREMENT,
 						'url' VARCHAR(255) NOT NULL,
 						'filter' VARCHAR(255) NOT NULL,
+						'last_tag' VARCHAR(255) NOT NULL DEFAULT '',
 						'date' DATE NOT NULL
 					);
 
@@ -68,7 +69,7 @@ func initSqlite() db.Database {
 						'message_pattern' VARCHAR(255) NOT NULL
 					);
 
-					INSERT INTO 'schema_version' (id, version) values (1, 1);
+					INSERT INTO 'schema_version' (id, version) values (1, 2);
 				`)
 			if err != nil {
 				logger.Fatal("failed to initialize database",
@@ -82,9 +83,9 @@ func initSqlite() db.Database {
 			)
 		}
 	} else {
-		schema_version := int(0)
+		schemaVersion := int(0)
 		for rows.Next() {
-			err = rows.Scan(&schema_version)
+			err = rows.Scan(&schemaVersion)
 			if err != nil {
 				logger.Fatal("unable to fetch value",
 					zap.Error(err),
@@ -93,10 +94,29 @@ func initSqlite() db.Database {
 		}
 		rows.Close()
 
-		if schema_version != current_schema_version {
-			logger.Fatal("Unknown schema version specified",
-				zap.Int("version", schema_version),
-			)
+		if schemaVersion != currentSchemaVersion {
+			switch schemaVersion {
+			case 1:
+				_, err = configs.Config.DB.Exec(`
+ALTER TABLE last_version ADD COLUMN 'last_tag' VARCHAR(255) NOT NULL DEFAULT '';
+
+UPDATE schema_version SET version = 2 WHERE id=1;
+				`)
+
+				if err != nil {
+					logger.Fatal("failed to migrate database",
+						zap.Int("databaseVersion", schemaVersion),
+						zap.Int("upgradingTo", currentSchemaVersion),
+						zap.Error(err),
+					)
+				}
+				// 'last_tag' VARCHAR(255) NOT NULL DEFAULT '',
+			default:
+				// Don't know how to migrate from this version
+				logger.Fatal("Unknown schema version specified",
+					zap.Int("version", schemaVersion),
+				)
+			}
 		}
 	}
 
@@ -152,7 +172,7 @@ func main() {
 
 	// TODO: Generalize to support other databases (e.x. mysql)
 	var db db.Database
-	if configs.Config.DatabaseType == "sqlite3" {
+	if configs.Config.DatabaseType == "sqlite3" || configs.Config.DatabaseType == "sqlite" {
 		db = initSqlite()
 	}
 

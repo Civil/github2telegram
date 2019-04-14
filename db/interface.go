@@ -7,7 +7,7 @@ import (
 type Database interface {
 	GetLastUpdateTime(url, filter string) time.Time
 	GetLastTag(url, filter string) string
-	UpdateLastUpdateTime(url, filter string, t time.Time, tag string)
+	UpdateLastUpdateTime(url, filter, tag string, t time.Time)
 
 	AddFeed(name, repo, filter, messagePattern string) (int, error)
 	GetFeed(name string) (*Feed, error)

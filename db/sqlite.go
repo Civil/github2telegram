@@ -19,7 +19,7 @@ func NewSQLite(db *sql.DB) *SQLite {
 	}
 }
 
-var ErrAlreadyExists error = fmt.Errorf("Already exists")
+var ErrAlreadyExists error = fmt.Errorf("already exists")
 
 // GetLastUpdateTime - gets Last Update Time
 func (d *SQLite) GetLastUpdateTime(url, filter string) time.Time {
@@ -34,7 +34,7 @@ func (d *SQLite) GetLastUpdateTime(url, filter string) time.Time {
 	}
 	rows, err := stmt.Query(url, filter)
 	if err != nil {
-		logger.Error("error retreiving data",
+		logger.Error("error retrieving data",
 			zap.Error(err),
 		)
 		return t
@@ -42,13 +42,13 @@ func (d *SQLite) GetLastUpdateTime(url, filter string) time.Time {
 	for rows.Next() {
 		err = rows.Scan(&t)
 		if err != nil {
-			logger.Error("error retreiving data",
+			logger.Error("error retrieving data",
 				zap.Error(err),
 			)
 			break
 		}
 	}
-	rows.Close()
+	_ = rows.Close()
 	return t
 }
 
@@ -65,7 +65,7 @@ func (d *SQLite) GetLastTag(url, filter string) string {
 	}
 	rows, err := stmt.Query(url, filter)
 	if err != nil {
-		logger.Error("error retreiving data",
+		logger.Error("error retrieving data",
 			zap.Error(err),
 		)
 		return tag
@@ -73,13 +73,13 @@ func (d *SQLite) GetLastTag(url, filter string) string {
 	for rows.Next() {
 		err = rows.Scan(&tag)
 		if err != nil {
-			logger.Error("error retreiving data",
+			logger.Error("error retrieving data",
 				zap.Error(err),
 			)
 			break
 		}
 	}
-	rows.Close()
+	_ = rows.Close()
 	return tag
 }
 
@@ -100,10 +100,10 @@ func (d *SQLite) AddFeed(name, repo, filter, messagePattern string) (int, error)
 		if err != nil {
 			return -1, err
 		}
-		rows.Close()
+		_ = rows.Close()
 		return id, ErrAlreadyExists
 	}
-	rows.Close()
+	_ = rows.Close()
 
 	stmt, err = d.db.Prepare("INSERT INTO 'feeds' (name, repo, filter, message_pattern) VALUES (?, ?, ?, ?)")
 	if err != nil {
@@ -131,7 +131,7 @@ func (d *SQLite) AddFeed(name, repo, filter, messagePattern string) (int, error)
 			return -1, err
 		}
 	}
-	rows.Close()
+	_ = rows.Close()
 
 	return id, nil
 }
@@ -154,7 +154,7 @@ func (d *SQLite) GetFeed(name string) (*Feed, error) {
 			continue
 		}
 	}
-	rows.Close()
+	_ = rows.Close()
 
 	return result, nil
 }
@@ -175,12 +175,9 @@ func (d *SQLite) ListFeeds() ([]*Feed, error) {
 		}
 
 		f := &Feed{id, repo, filter, name, pattern}
-		if err != nil {
-			continue
-		}
 		result = append(result, f)
 	}
-	rows.Close()
+	_ = rows.Close()
 
 	return result, nil
 }
@@ -197,10 +194,10 @@ func (d *SQLite) AddSubscribtion(endpoint, url, filter string, chatID int64) err
 	}
 
 	if rows.Next() {
-		rows.Close()
+		_ = rows.Close()
 		return ErrAlreadyExists
 	}
-	rows.Close()
+	_ = rows.Close()
 
 	stmt, err = d.db.Prepare("INSERT INTO 'subscriptions' (endpoint, url, filter, chat_id) VALUES (?, ?, ?, ?)")
 	if err != nil {
@@ -244,14 +241,14 @@ func (d *SQLite) GetNotificationMethods(url, filter string) ([]string, error) {
 	for rows.Next() {
 		err = rows.Scan(&tmp)
 		if err != nil {
-			logger.Error("error retreiving data",
+			logger.Error("error retrieving data",
 				zap.Error(err),
 			)
 			continue
 		}
 		result = append(result, tmp)
 	}
-	rows.Close()
+	_ = rows.Close()
 
 	return result, nil
 }
@@ -278,19 +275,19 @@ func (d *SQLite) GetEndpointInfo(endpoint, url, filter string) ([]int64, error) 
 	for rows.Next() {
 		err = rows.Scan(&tmp)
 		if err != nil {
-			logger.Error("error retreiving data",
+			logger.Error("error retrieving data",
 				zap.Error(err),
 			)
 			continue
 		}
 		result = append(result, tmp)
 	}
-	rows.Close()
+	_ = rows.Close()
 
 	return result, nil
 }
 
-func (d *SQLite) UpdateLastUpdateTime(url, filter string, t time.Time, tag string) {
+func (d *SQLite) UpdateLastUpdateTime(url, filter, tag string, t time.Time) {
 	logger := zapwriter.Logger("updater")
 	id := -1
 	stmt, err := d.db.Prepare("SELECT id FROM 'last_version' where url=? and filter=?;")
@@ -302,21 +299,22 @@ func (d *SQLite) UpdateLastUpdateTime(url, filter string, t time.Time, tag strin
 	}
 	rows, err := stmt.Query(url, filter)
 	if err != nil {
-		logger.Error("error retreiving data",
+		logger.Error("error retrieving data",
 			zap.Error(err),
 		)
 		return
 	}
+
 	for rows.Next() {
 		err = rows.Scan(&id)
 		if err != nil {
-			logger.Error("error retreiving data",
+			logger.Error("error retrieving data",
 				zap.Error(err),
 			)
 			break
 		}
 	}
-	rows.Close()
+	_ = rows.Close()
 
 	if id != -1 {
 		stmt, err = d.db.Prepare("UPDATE 'last_version' SET date=?, last_tag=? where id=?")
@@ -331,7 +329,7 @@ func (d *SQLite) UpdateLastUpdateTime(url, filter string, t time.Time, tag strin
 	}
 
 	if id != -1 {
-		_, err = stmt.Exec(t, id, tag)
+		_, err = stmt.Exec(t, tag, id)
 	} else {
 		_, err = stmt.Exec(url, filter, t, tag)
 	}
