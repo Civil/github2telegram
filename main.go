@@ -1,21 +1,21 @@
 package main
 
 import (
-	"flag"
 	"database/sql"
+	"flag"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
-	_ "net/http/pprof"
 	"net/http"
+	_ "net/http/pprof"
 
-	_ "github.com/mattn/go-sqlite3"
-	"github.com/Civil/github2telegram/db"
-	"github.com/Civil/github2telegram/feeds"
-	"github.com/Civil/github2telegram/endpoints"
-	"github.com/lomik/zapwriter"
 	"github.com/Civil/github2telegram/configs"
+	"github.com/Civil/github2telegram/db"
+	"github.com/Civil/github2telegram/endpoints"
+	"github.com/Civil/github2telegram/feeds"
+	"github.com/lomik/zapwriter"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 const (
@@ -164,7 +164,7 @@ func main() {
 	for name, cfg := range configs.Config.Endpoints {
 		logger.Debug("initializing endpoint",
 			zap.Any("endpoint_config", cfg),
-			)
+		)
 		if cfg.Type == "telegram" {
 			configs.Config.Senders[name], err = endpoints.InitializeTelegramEndpoint(cfg.Token, exitChan, db)
 			if err != nil {

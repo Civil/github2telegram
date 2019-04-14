@@ -35,7 +35,7 @@ var errUnauthorized = errors.New("unauthorized action")
 type TelegramEndpoint struct {
 	api    *tgbotapi.BotAPI
 	admins map[int64][]user
-	db db.Database
+	db     db.Database
 
 	logger   *zap.Logger
 	commands map[string]handlerWithDescription
@@ -60,7 +60,7 @@ func InitializeTelegramEndpoint(token string, exitChan <-chan struct{}, database
 		admins:   make(map[int64][]user),
 		logger:   logger,
 		exitChan: exitChan,
-		db: database,
+		db:       database,
 	}
 
 	e.commands = map[string]handlerWithDescription{
