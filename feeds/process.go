@@ -259,6 +259,7 @@ func (f *Feed) ProcessFeed() {
 
 					cfg.Filters[i].FilterProcessed = true
 					cfg.Filters[i].LastUpdateTime = *item.UpdatedParsed
+					cfg.Filters[i].LastTag = item.Title
 					f.db.UpdateLastUpdateTime(url, cfg.Filters[i].Filter, item.Title, cfg.Filters[i].LastUpdateTime)
 				}
 			}
