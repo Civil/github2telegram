@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -17,16 +18,18 @@ const (
 
 type SQLiteSuite struct {
 	suite.Suite
-	db Database
+	tempDir string
+	db      Database
 }
 
 func (s *SQLiteSuite) SetupSuite() {
-	configs.Config.DatabaseURL = fmt.Sprintf("./%s", testDbName)
+	s.tempDir, _ = ioutil.TempDir("", "testg2t")
+	configs.Config.DatabaseURL = fmt.Sprintf("%s/%s", s.tempDir, testDbName)
 	s.db = NewSQLite()
 }
 
 func (s *SQLiteSuite) TearDownSuite() {
-	os.Remove(testDbName)
+	os.RemoveAll(s.tempDir)
 }
 
 func (s *SQLiteSuite) TestUpdateLastUpdateTime() {
