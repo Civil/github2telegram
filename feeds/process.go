@@ -36,6 +36,11 @@ func UpdateFeeds(feeds []*Feed) {
 	defer configs.Config.Unlock()
 
 	for _, feed := range feeds {
+		logger = logger.With(
+			zap.Int("id", feed.Id),
+			zap.String("repo", feed.Repo),
+		)
+
 		logger.Debug("will initialize feeds",
 			zap.Any("feed", feed),
 		)
@@ -46,16 +51,18 @@ func UpdateFeeds(feeds []*Feed) {
 				break
 			}
 		}
-		if cfg == nil {
-			re, err := regexp.Compile(feed.Filter)
-			if err != nil {
-				logger.Error("failed to compile regex",
-					zap.String("filter", feed.Filter),
-					zap.Error(err),
-				)
-				continue
-			}
 
+		re, err := regexp.Compile(feed.Filter)
+		if err != nil {
+			logger.Error("failed to compile regex",
+				zap.String("filter", feed.Filter),
+				zap.Error(err),
+			)
+			continue
+		}
+
+		// We were unable to find relevant configuration for this particular feed, we need to create it
+		if cfg == nil {
 			feed.cfg = configs.FeedsConfig{
 				Repo:            feed.Repo,
 				PollingInterval: configs.Config.PollingInterval,
@@ -70,10 +77,13 @@ func UpdateFeeds(feeds []*Feed) {
 			configs.Config.FeedsConfig = append(configs.Config.FeedsConfig, &feed.cfg)
 			continue
 		}
+
+		// Configuration was found, but this filter is new, we need to append it to existing repo
 		cfg.Filters = append(cfg.Filters, configs.FiltersConfig{
 			Name:           feed.Name,
 			Filter:         feed.Filter,
 			MessagePattern: feed.MessagePattern,
+			FilterRegex:    re,
 		})
 	}
 
@@ -82,6 +92,7 @@ func UpdateFeeds(feeds []*Feed) {
 	)
 
 	for _, feed := range feeds {
+		// keep track of feeds that are currently running
 		runningFeeds = append(runningFeeds, feed)
 		go func(f *Feed) {
 			f.ProcessFeed()
@@ -165,8 +176,6 @@ func (f *Feed) processSingleItem(cfg *configs.FeedsConfig, url string, item *gof
 			continue
 		}
 
-
-
 		if cfg.Filters[i].FilterRegex.MatchString(item.Title) {
 			logger.Debug("filter matched")
 			contentTruncated := false
@@ -208,7 +217,7 @@ func (f *Feed) processSingleItem(cfg *configs.FeedsConfig, url string, item *gof
 				)
 				continue
 			}
-			f.logger.Debug("notifications",
+			logger.Debug("notifications",
 				zap.Strings("methods", methods),
 			)
 			for _, m := range methods {
