@@ -1,18 +1,48 @@
 package endpoints
 
 import (
+	"fmt"
+	"net/http"
+	"regexp"
+	"strings"
+
 	"github.com/Civil/github2telegram/configs"
 	"github.com/Civil/github2telegram/db"
 	"github.com/Civil/github2telegram/feeds"
 	"github.com/lomik/zapwriter"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"gopkg.in/telegram-bot-api.v4"
-
-	"fmt"
-	"github.com/pkg/errors"
-	"regexp"
-	"strings"
 )
+
+type tgLogger struct {
+	logger *zap.Logger
+}
+
+func (l *tgLogger) Println(v ...interface{}) {
+	l.logger.Info("telegram api triggered println",
+		zap.Any("data", v),
+	)
+}
+
+func (l *tgLogger) Printf(format string, v ...interface{}) {
+	l.logger.Info("telegram api triggered printf",
+		zap.Any("data", v),
+	)
+}
+
+func newTgLogger(logger *zap.Logger) *tgLogger {
+	logger = logger.With(
+		zap.String("source", "tgbotapi"),
+	)
+
+	tgLogger := &tgLogger{
+		logger: logger,
+	}
+	tgbotapi.SetLogger(tgLogger)
+
+	return tgLogger
+}
 
 const (
 	TelegramEndpointName = "telegram"
@@ -28,6 +58,7 @@ type handler func(tokens []string, update *tgbotapi.Update) error
 type handlerWithDescription struct {
 	f           handler
 	description string
+	hidden      bool
 }
 
 var errUnauthorized = errors.New("unauthorized action")
@@ -41,6 +72,8 @@ type TelegramEndpoint struct {
 	commands map[string]handlerWithDescription
 
 	exitChan <-chan struct{}
+
+	tgLogger *tgLogger
 }
 
 func InitializeTelegramEndpoint(token string, exitChan <-chan struct{}, database db.Database) (*TelegramEndpoint, error) {
@@ -61,11 +94,12 @@ func InitializeTelegramEndpoint(token string, exitChan <-chan struct{}, database
 		logger:   logger,
 		exitChan: exitChan,
 		db:       database,
+		tgLogger: newTgLogger(logger),
 	}
 
 	e.commands = map[string]handlerWithDescription{
 		"/new": {
-			f:           e.handlerNew,
+			f: e.handlerNew,
 			description: "`/new repo filter_name filter_regexp` -- creates new available subscription" + `
 
 Example:
@@ -74,7 +108,7 @@ Example:
   This will create repo named 'lomik/go-carbon', with filter called 'all' and regexp that will grab all tags that starts from capital 'V'`,
 		},
 		"/subscribe": {
-			f:           e.handlerSubscribe,
+			f: e.handlerSubscribe,
 			description: "`/subscribe repo filter_name` -- subscribe current channel to specific repo and filter" + `
 
 Example:
@@ -82,7 +116,7 @@ Example:
 `,
 		},
 		"/unsubscribe": {
-			f:           e.handlerUnsubscribe,
+			f: e.handlerUnsubscribe,
 			description: "`/unsubscribe repo filter_name`  -- unsubscribe current channel to specific repo and filter" + `
 
 Example:
@@ -92,6 +126,16 @@ Example:
 		"/list": {
 			f:           e.handlerList,
 			description: "`/list` -- lists all available repos",
+		},
+		"/forceProcess": {
+			hidden: true,
+			f:      e.handlerForceProcess,
+			description: "`/forceProcess repo` -- force process repository (can be only executed by account specified in config, for debug purpose only)" + `
+
+Example:
+  ` + "`/new lomik/go-carbon all ^V`" + `
+
+  This will create repo named 'lomik/go-carbon', with filter called 'all' and regexp that will grab all tags that starts from capital 'V'`,
 		},
 		"/help": {
 			f:           e.handlerHelp,
@@ -127,7 +171,29 @@ func (e *TelegramEndpoint) sendMessage(chatID int64, messageID int, message stri
 		msg.ReplyToMessageID = messageID
 	}
 
-	e.api.Send(msg)
+	_, err := e.api.Send(msg)
+	if err != nil {
+		e.logger.Error("failed to send message",
+			zap.Any("msg", msg),
+			zap.Error(err),
+		)
+	}
+}
+
+func (e *TelegramEndpoint) sendRawMessage(chatID int64, messageID int, message string) {
+	msg := tgbotapi.NewMessage(chatID, message)
+	if messageID != 0 {
+		msg.ReplyToMessageID = messageID
+	}
+
+	_, err := e.api.Send(msg)
+
+	if err != nil {
+		e.logger.Error("failed to send raw message",
+			zap.Any("msg", msg),
+			zap.Error(err),
+		)
+	}
 }
 
 // returns true if user can issue commands
@@ -164,35 +230,121 @@ func (e *TelegramEndpoint) checkAuthorized(update *tgbotapi.Update) bool {
 	return true
 }
 
-func (e *TelegramEndpoint) handlerNew(tokens []string, update *tgbotapi.Update) error {
-	if !e.checkAuthorized(update) {
-		return errUnauthorized
-	}
-	if len(tokens) < 4 {
-		return errors.New("Command require exactly 4 arguments\n\n" + e.commands["/new"].description)
-	}
-
-	repo := tokens[1]
-	name := tokens[2]
-	filter := tokens[3]
-	pattern := "https://github.com/%v/releases/%v was tagged"
-
-	_, err := regexp.Compile(filter)
-	if err != nil {
-		return errors.Wrap(err, "invalid regexp")
+func (e *TelegramEndpoint) isRepoNameValid(repo string) error {
+	validateRegexString := "^[-a-zA-Z0-9_]+$"
+	repoNameSplit := strings.Split(repo, "/")
+	if len(repoNameSplit) != 2 {
+		return fmt.Errorf("repo name must follow format `org_or_user/repo_name`")
 	}
 
-	tmp := fmt.Sprintf(pattern, repo, "1.0")
-	if strings.Contains(tmp, "%!") {
-		return errors.New("Invalid message pattern!")
-	}
-
-	feed, err := feeds.NewFeed(repo, filter, name, pattern, e.db)
+	re, err := regexp.Compile(validateRegexString)
 	if err != nil {
 		return err
 	}
 
-	feeds.UpdateFeeds([]*feeds.Feed{feed})
+	for i, s := range repoNameSplit {
+		if !re.MatchString(s) {
+			if i == 0 {
+				return fmt.Errorf("user/org contains invalid characters, it must match regex `" + validateRegexString + "`")
+			} else {
+				return fmt.Errorf("repo-name contains invalid characters, it must match regex `" + validateRegexString + "`")
+			}
+		}
+	}
+
+	return nil
+}
+
+func (e *TelegramEndpoint) isFilterNameValid(filterName string) error {
+	validateRegexString := "^[-a-zA-Z0-9_]+$"
+
+	re, err := regexp.Compile(validateRegexString)
+	if err != nil {
+		return err
+	}
+
+	if !re.MatchString(filterName) {
+		return fmt.Errorf("filter_name contains invalid characters, it must match regex `" + validateRegexString + "`")
+	}
+
+	return nil
+}
+
+	func (e *TelegramEndpoint) handlerNew(tokens []string, update *tgbotapi.Update) error {
+		if !e.checkAuthorized(update) {
+			return errUnauthorized
+		}
+		if len(tokens) < 4 {
+			return errors.New("Command require exactly 4 arguments\n\n" + e.commands["/new"].description)
+		}
+
+		e.logger.Debug("got repo add request",
+			zap.Strings("tokens", tokens),
+		)
+
+		repo := tokens[1]
+		name := tokens[2]
+		filter := tokens[3]
+		err := e.isRepoNameValid(repo)
+		if err != nil {
+			return errors.Wrap(err, "invalid repo_name")
+		}
+
+		err = e.isFilterNameValid(name)
+		if err != nil {
+			return errors.Wrap(err, "invalid filter_name")
+		}
+
+		_, err = regexp.Compile(filter)
+		if err != nil {
+			return errors.Wrap(err, "invalid regexp")
+		}
+
+		resp, err := http.Get(fmt.Sprintf("https://github.com/%s/releases.atom", repo))
+		if err != nil {
+			return errors.Wrap(err, "repo is not accessible or doesn't exist")
+		}
+
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return errors.New(fmt.Sprintf("repo is not accessible or doesn't exist, http_code: %v", resp.StatusCode))
+		}
+
+		pattern := "https://github.com/%v/releases/%v was tagged"
+
+		tmp := fmt.Sprintf(pattern, repo, "1.0")
+		if strings.Contains(tmp, "%!") {
+			return errors.New("Invalid message pattern!")
+		}
+
+		feed, err := feeds.NewFeed(repo, filter, name, pattern, e.db)
+		if err != nil {
+			return err
+		}
+
+		feeds.UpdateFeeds([]*feeds.Feed{feed})
+
+		e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "done")
+		return nil
+	}
+
+func (e *TelegramEndpoint) handlerForceProcess(tokens []string, update *tgbotapi.Update) error {
+	if update.Message.From.UserName != configs.Config.AdminUsername {
+		return errUnauthorized
+	}
+	if len(tokens) < 2 {
+		return errors.New("Command require exactly 1 arguments\n\n" + e.commands["/forceProcess"].description)
+	}
+
+	repo := tokens[1]
+
+	err := e.isRepoNameValid(repo)
+	if err != nil {
+		return errors.Wrap(err, "invalid repo_name")
+	}
+
+	feeds.ForceProcessFeed(repo)
 
 	e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "done")
 	return nil
@@ -206,7 +358,6 @@ func isFilterExists(url, filterName string) bool {
 			for _, feedFilter := range feed.Filters {
 				if feedFilter.Name == filterName {
 					return true
-					break
 				}
 			}
 		}
@@ -308,6 +459,12 @@ func (e *TelegramEndpoint) handlerList(tokens []string, update *tgbotapi.Update)
 func (e *TelegramEndpoint) handlerHelp(tokens []string, update *tgbotapi.Update) error {
 	response := ""
 	for _, v := range e.commands {
+		if v.hidden {
+			e.logger.Debug("hidden command's help",
+				zap.String("help", v.description),
+			)
+			continue
+		}
 		response = response + v.description + "\n\n==============================\n\n"
 	}
 
@@ -349,6 +506,7 @@ func (e *TelegramEndpoint) Process() {
 
 			var m string
 			cmd, ok := e.commands[tokens[0]]
+			markdownMessage := true
 			if !ok {
 				tokens2 := strings.Split(tokens[0], "@")
 				if len(tokens2) > 1 {
@@ -357,15 +515,22 @@ func (e *TelegramEndpoint) Process() {
 					}
 				}
 			}
+
+			// It's possible that command just had bot explicitly specified there
 			if ok {
 				err = cmd.f(tokens, &update)
 				if err != nil {
-					m = err.Error()
+						m = err.Error()
+						markdownMessage = false
 				}
 			}
 
 			if m != "" {
-				e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, m)
+				if markdownMessage {
+					e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, m)
+				} else {
+					e.sendRawMessage(update.Message.Chat.ID, update.Message.MessageID, m)
+				}
 			}
 		}
 	}

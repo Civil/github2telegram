@@ -69,7 +69,7 @@ type Configuration struct {
 
 var Config = Configuration{
 	AdminUsername:   "REPLACE_ME",
-	Listen:          ":8080",
+	Listen:          "127.0.0.1:8080",
 	Logger:          []zapwriter.Config{DefaultLoggerConfig},
 	DatabaseType:    "sqlite3",
 	DatabaseURL:     "./github2telegram.DB",

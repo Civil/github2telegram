@@ -17,6 +17,19 @@ import (
 	"go.uber.org/zap"
 )
 
+var runningFeeds = make([]*Feed, 0)
+
+func ForceProcessFeed(name string) {
+	configs.Config.RLock()
+	defer configs.Config.RUnlock()
+
+	for _, f := range runningFeeds {
+		if f.Repo == name {
+			f.ForceProcess()
+		}
+	}
+}
+
 func UpdateFeeds(feeds []*Feed) {
 	logger := zapwriter.Logger("updateFeeds")
 	configs.Config.Lock()
@@ -69,6 +82,7 @@ func UpdateFeeds(feeds []*Feed) {
 	)
 
 	for _, feed := range feeds {
+		runningFeeds = append(runningFeeds, feed)
 		go func(f *Feed) {
 			f.ProcessFeed()
 		}(feed)
@@ -115,6 +129,163 @@ func (f *Feed) SetCfg(cfg configs.FeedsConfig) {
 	f.cfg = cfg
 }
 
+func (f *Feed) processSingleItem(cfg *configs.FeedsConfig, url string, item *gofeed.Item) {
+	logger := f.logger.With(
+		zap.String("item_title", item.Title),
+		zap.Int("filters defined", len(cfg.Filters)),
+		zap.Time("item_update_time", *item.UpdatedParsed),
+	)
+	logger.Debug("processing item")
+	for i := range cfg.Filters {
+		logger = logger.With(
+			zap.Int("filter_id", i),
+			zap.String("filter", cfg.Filters[i].Filter),
+			zap.String("filter_regex_string", cfg.Filters[i].FilterRegex.String()),
+			zap.Time("filter_last_update_time", cfg.Filters[i].LastUpdateTime),
+		)
+		logger.Debug("will test for filter")
+
+		if cfg.Filters[i].LastUpdateTime.Unix() >= item.UpdatedParsed.Unix() {
+			cfg.Filters[i].FilterProcessed = true
+		}
+
+		if cfg.Filters[i].FilterProcessed {
+			logger.Debug("item already processed by this filter")
+			continue
+		}
+
+		if cfg.Filters[i].FilterRegex == nil {
+			logger.Error("regex not defined for package",
+				zap.String("reason", "some bug caused filter not to be defined. This should never happen"),
+			)
+			continue
+		}
+
+		if cfg.Filters[i].FilterRegex.MatchString(item.Title) {
+			logger.Debug("filter matched")
+			contentTruncated := false
+			var changeType UpdateType
+			var notification string
+
+			// check if last tag haven't changed
+			if item.Title == cfg.Filters[i].LastTag {
+				changeType = DescriptionChange
+				notification = cfg.Repo + " description changed: " + item.Title + "\nLink: " + item.Link
+			} else {
+				changeType = NewRelease
+				notification = cfg.Repo + " tagged: " + item.Title + "\nLink: " + item.Link
+			}
+
+			content := html2md.Convert(item.Content)
+			if len(content) > 250 {
+				content = content[:250] + "..."
+				contentTruncated = true
+			}
+			content = strings.Replace(content, "```", "", 1)
+
+			notification += "\nRelease notes:\n```\n" + content + "\n```"
+			if contentTruncated {
+				notification += "[More](" + item.Link + ")"
+			}
+
+			logger.Info("release tagged",
+				zap.String("release", item.Title),
+				zap.String("notification", notification),
+				zap.String("content", item.Content),
+				zap.Any("changeType", changeType),
+			)
+
+			methods, err := f.db.GetNotificationMethods(cfg.Repo, cfg.Filters[i].Name)
+			if err != nil {
+				logger.Error("error sending notification",
+					zap.Error(err),
+				)
+				continue
+			}
+			f.logger.Debug("notifications",
+				zap.Strings("methods", methods),
+			)
+			for _, m := range methods {
+				logger.Debug("will notify",
+					zap.String("method", m),
+					zap.Any("senders", configs.Config.Senders),
+				)
+				err = configs.Config.Senders[m].Send(cfg.Repo, cfg.Filters[i].Name, notification)
+				if err != nil {
+					logger.Error("failed to send an update",
+						zap.Error(err),
+					)
+				}
+			}
+
+			cfg.Filters[i].FilterProcessed = true
+			cfg.Filters[i].LastUpdateTime = *item.UpdatedParsed
+			cfg.Filters[i].LastTag = item.Title
+			f.db.UpdateLastUpdateTime(url, cfg.Filters[i].Filter, item.Title, cfg.Filters[i].LastUpdateTime)
+		} else {
+			logger.Debug("filter doesn't match")
+		}
+	}
+}
+
+func (f *Feed) ForceProcess() {
+	cfg := f.cfg
+
+	if len(cfg.Filters) == 0 {
+		f.logger.Warn("no filters to process, exiting")
+		return
+	}
+
+	url := "https://github.com/" + f.Repo + "/releases.atom"
+
+	// Initialize
+	for i := range cfg.Filters {
+		cfg.Filters[i].LastUpdateTime = f.db.GetLastUpdateTime(url, cfg.Filters[i].Filter)
+		cfg.Filters[i].LastTag = f.db.GetLastTag(url, cfg.Filters[i].Filter)
+	}
+
+	fp := gofeed.NewParser()
+	if cfg.PollingInterval == 0 {
+		cfg.PollingInterval = configs.Config.PollingInterval
+	}
+
+	f.logger.Info("force process triggered",
+		zap.Int("filters", len(cfg.Filters)),
+	)
+
+	t0 := time.Now()
+	for i := range cfg.Filters {
+		cfg.Filters[i].FilterProcessed = false
+	}
+
+	feed, err := fp.ParseURL(url)
+	if err != nil {
+		f.logger.Error("feed fetch failed ", zap.Duration("runtime", time.Since(t0)),
+			zap.Duration("runtime", time.Since(t0)),
+			zap.Time("now", t0),
+			zap.Error(err),
+		)
+		return
+	}
+
+	f.logger.Debug("received some data",
+		zap.Int("items", len(feed.Items)),
+	)
+
+	processedFilters := 0
+	for _, item := range feed.Items {
+		f.processSingleItem(&cfg, url, item)
+
+		if len(cfg.Filters) == processedFilters {
+			break
+		}
+	}
+	f.logger.Info("done",
+		zap.Duration("runtime", time.Since(t0)),
+		zap.Time("now", t0),
+	)
+}
+
 func (f *Feed) ProcessFeed() {
 	cfg := f.cfg
 
@@ -158,7 +329,7 @@ func (f *Feed) ProcessFeed() {
 
 		feed, err := fp.ParseURL(url)
 		if err != nil {
-			f.logger.Info("feed fetch failed ", zap.Duration("runtime", time.Since(t0)),
+			f.logger.Error("feed fetch failed ", zap.Duration("runtime", time.Since(t0)),
 				zap.Duration("runtime", time.Since(t0)),
 				zap.Time("nextRun", nextRun),
 				zap.Time("now", t0),
@@ -173,96 +344,7 @@ func (f *Feed) ProcessFeed() {
 
 		processedFilters := 0
 		for _, item := range feed.Items {
-			f.logger.Debug("processing item",
-				zap.String("title", item.Title),
-				zap.Int("filters defined", len(cfg.Filters)),
-			)
-			for i := range cfg.Filters {
-				f.logger.Debug("testing for filter",
-					zap.String("filter", cfg.Filters[i].Filter),
-					zap.Time("filter_last_update_time", cfg.Filters[i].LastUpdateTime),
-					zap.Time("item_update_time", *item.UpdatedParsed),
-				)
-				if cfg.Filters[i].LastUpdateTime.Unix() >= item.UpdatedParsed.Unix() {
-					cfg.Filters[i].FilterProcessed = true
-				}
-				if cfg.Filters[i].FilterProcessed {
-					f.logger.Debug("item already processed by this filter",
-						zap.String("title", item.Title),
-						zap.String("filter", cfg.Filters[i].Filter),
-					)
-					continue
-				}
-				if cfg.Filters[i].FilterRegex == nil {
-					f.logger.Error("regex not defined for package",
-						zap.Int("filter_id", i),
-						zap.String("filter", cfg.Filters[i].Filter),
-						zap.String("reason", "some bug caused filter not to be defined. This should never happen"),
-					)
-					continue
-				}
-				if cfg.Filters[i].FilterRegex.MatchString(item.Title) {
-					contentTruncated := false
-					var changeType UpdateType
-					var notification string
-
-					// check if last tag haven't changed
-					if item.Title == cfg.Filters[i].LastTag {
-						changeType = DescriptionChange
-						notification = cfg.Repo + " description changed: " + item.Title + "\nLink: " + item.Link
-					} else {
-						changeType = NewRelease
-						notification = cfg.Repo + " tagged: " + item.Title + "\nLink: " + item.Link
-					}
-
-					content := html2md.Convert(item.Content)
-					if len(content) > 250 {
-						content = content[:250] + "..."
-						contentTruncated = true
-					}
-					content = strings.Replace(content, "```", "", 0)
-
-					notification += "\nRelease notes:\n```\n" + content + "\n```"
-					if contentTruncated {
-						notification += "[More](" + item.Link + ")"
-					}
-
-					f.logger.Info("release tagged",
-						zap.String("release", item.Title),
-						zap.String("notification", notification),
-						zap.String("content", item.Content),
-						zap.Any("changeType", changeType),
-					)
-
-					methods, err := f.db.GetNotificationMethods(cfg.Repo, cfg.Filters[i].Name)
-					if err != nil {
-						f.logger.Error("error sending notification",
-							zap.Error(err),
-						)
-						continue
-					}
-					f.logger.Debug("notifications",
-						zap.Strings("methods", methods),
-					)
-					for _, m := range methods {
-						f.logger.Debug("will notify",
-							zap.String("method", m),
-							zap.Any("senders", configs.Config.Senders),
-						)
-						err = configs.Config.Senders[m].Send(cfg.Repo, cfg.Filters[i].Name, notification)
-						if err != nil {
-							f.logger.Error("failed to send an update",
-								zap.Error(err),
-							)
-						}
-					}
-
-					cfg.Filters[i].FilterProcessed = true
-					cfg.Filters[i].LastUpdateTime = *item.UpdatedParsed
-					cfg.Filters[i].LastTag = item.Title
-					f.db.UpdateLastUpdateTime(url, cfg.Filters[i].Filter, item.Title, cfg.Filters[i].LastUpdateTime)
-				}
-			}
+			f.processSingleItem(&cfg, url, item)
 
 			if len(cfg.Filters) == processedFilters {
 				break
