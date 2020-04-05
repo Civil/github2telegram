@@ -140,9 +140,20 @@ func (f *Feed) processSingleItem(cfg *configs.FeedsConfig, url string, item *gof
 		logger = logger.With(
 			zap.Int("filter_id", i),
 			zap.String("filter", cfg.Filters[i].Filter),
-			zap.String("filter_regex_string", cfg.Filters[i].FilterRegex.String()),
 			zap.Time("filter_last_update_time", cfg.Filters[i].LastUpdateTime),
 		)
+
+		if cfg.Filters[i].FilterRegex == nil {
+			logger.Error("regex not defined for package",
+				zap.String("reason", "some bug caused filter not to be defined. This should never happen"),
+			)
+			continue
+		}
+
+		logger = logger.With(
+			zap.String("filter_regex_string", cfg.Filters[i].FilterRegex.String()),
+		)
+
 		logger.Debug("will test for filter")
 
 		if cfg.Filters[i].LastUpdateTime.Unix() >= item.UpdatedParsed.Unix() {
@@ -154,12 +165,7 @@ func (f *Feed) processSingleItem(cfg *configs.FeedsConfig, url string, item *gof
 			continue
 		}
 
-		if cfg.Filters[i].FilterRegex == nil {
-			logger.Error("regex not defined for package",
-				zap.String("reason", "some bug caused filter not to be defined. This should never happen"),
-			)
-			continue
-		}
+
 
 		if cfg.Filters[i].FilterRegex.MatchString(item.Title) {
 			logger.Debug("filter matched")
