@@ -31,17 +31,17 @@ func ForceProcessFeed(name string) {
 }
 
 func UpdateFeeds(feeds []*Feed) {
-	logger := zapwriter.Logger("updateFeeds")
+	loggerRef := zapwriter.Logger("updateFeeds")
 	configs.Config.Lock()
 	defer configs.Config.Unlock()
 
 	for _, feed := range feeds {
-		logger = logger.With(
+		logger := loggerRef.With(
 			zap.Int("id", feed.Id),
 			zap.String("repo", feed.Repo),
 		)
 
-		logger.Debug("will initialize feeds",
+		logger.Debug("will initialize feed",
 			zap.Any("feed", feed),
 		)
 		var cfg *configs.FeedsConfig
@@ -63,6 +63,7 @@ func UpdateFeeds(feeds []*Feed) {
 
 		// We were unable to find relevant configuration for this particular feed, we need to create it
 		if cfg == nil {
+			logger.Debug("creating first configuration for the repo")
 			feed.cfg = configs.FeedsConfig{
 				Repo:            feed.Repo,
 				PollingInterval: configs.Config.PollingInterval,
@@ -79,15 +80,18 @@ func UpdateFeeds(feeds []*Feed) {
 		}
 
 		// Configuration was found, but this filter is new, we need to append it to existing repo
+		logger.Debug("adding new configuration for existing repo")
 		cfg.Filters = append(cfg.Filters, configs.FiltersConfig{
 			Name:           feed.Name,
 			Filter:         feed.Filter,
 			MessagePattern: feed.MessagePattern,
 			FilterRegex:    re,
 		})
+
+		feed.cfg.Filters = cfg.Filters
 	}
 
-	logger.Debug("feeds initialized",
+	loggerRef.Debug("feeds initialized",
 		zap.Any("feeds", feeds),
 	)
 
@@ -247,7 +251,9 @@ func (f *Feed) ForceProcess() {
 	cfg := f.cfg
 
 	if len(cfg.Filters) == 0 {
-		f.logger.Warn("no filters to process, exiting")
+		f.logger.Warn("no filters to process, exiting",
+			zap.Any("cfg", cfg),
+		)
 		return
 	}
 
@@ -305,7 +311,9 @@ func (f *Feed) ProcessFeed() {
 	cfg := f.cfg
 
 	if len(cfg.Filters) == 0 {
-		f.logger.Warn("no filters to process, exiting")
+		f.logger.Warn("no filters to process, exiting",
+			zap.Any("cfg", cfg),
+		)
 		return
 	}
 
