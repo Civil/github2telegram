@@ -1,0 +1,79 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: github2telegram-config
+data:
+  config.yaml: |
+    ---
+    logger:
+    - logger: ''
+      file: stdout
+      level: debug
+      encoding: json
+      encoding_time: iso8601
+      encoding_duration: seconds
+    # Only sqlite3 was tested
+    database_type: sqlite3
+    database_url: "/data/github2telegram.sqlite3"
+    database_login: ''
+    database_password: ''
+    # Username that will have access to bot controls. Currently only one can be specified
+    admin_username: "your_telegram_nick"
+    # Please note, that github might ban bot if you are polling too quick, safe option is about 10 minutes for moderate amount of feeds (100)
+    polling_interval: "30m"
+    endpoints:
+      # Currently only telegram is supported
+      telegram:
+        token: "YOUR_TOKEN_GOES_HERE"
+        type: telegram
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: github2telegram
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: github2telegram
+  template:
+    metadata:
+      labels:
+        app: github2telegram
+    spec:
+      containers:
+      - name: github2telegram
+        image: wwwlde/github2telegram
+        args:
+          - -c
+          - /config.yaml
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        volumeMounts:
+          - name: config-volume
+            mountPath: /config.yaml
+            subPath: config.yaml
+          - name: github2telegram-data
+            mountPath: /data
+      restartPolicy: Always
+      volumes:
+        - name: config-volume
+          configMap:
+            name: github2telegram-config
+        - name: github2telegram-data
+          persistentVolumeClaim:
+            claimName: github2telegram-persistent-storage-claim
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: github2telegram-persistent-storage-claim
+spec:
+  storageClassName: "local-path"
+  accessModes: [ "ReadWriteOnce" ]
+  resources:
+    requests:
+      storage: 32Mi
