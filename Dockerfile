@@ -1,15 +1,17 @@
-FROM golang:1.14 AS builder
+FROM golang:1.15-alpine AS builder
 
 # Set necessary environmet variables needed for our image
 ENV CGO_ENABLED=1 \
-    GOOS=linux \
-    GOARCH=arm64
+    GOOS=linux
 
 # Move to working directory /build
 WORKDIR /build
 
 # Copy the code into the container
 COPY . .
+
+# Additional packages required
+RUN apk -U add musl-dev gcc
 
 # Build the application
 RUN go build -v -a -tags netgo -ldflags '-w -extldflags "-static"' .
