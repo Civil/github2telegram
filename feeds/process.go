@@ -101,6 +101,14 @@ func UpdateFeeds(feeds []*Feed) {
 		runningFeeds = append(runningFeeds, feed)
 		go func(f *Feed) {
 			f.ProcessFeed()
+			configs.Config.RLock()
+			defer configs.Config.RUnlock()
+			for i, rf := range runningFeeds {
+				if rf.Id == f.Id {
+					runningFeeds = append(runningFeeds[:i], runningFeeds[i+1:]...)
+					break
+				}
+			}
 		}(feed)
 	}
 }
@@ -365,6 +373,15 @@ func (f *Feed) ProcessFeed() {
 				zap.Time("now", t0),
 				zap.Error(err),
 			)
+			if strings.Contains(err.Error(), "404 Not Found") {
+				err = f.db.RemoveFeed(f.Name, f.Repo, f.Filter, f.MessagePattern)
+				if err != nil {
+					f.logger.Error("error removing feed", zap.Error(err))
+					continue
+				}
+				f.logger.Info("feed removed")
+				return
+			}
 			continue
 		}
 
