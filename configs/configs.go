@@ -21,9 +21,11 @@ type FiltersConfig struct {
 }
 
 type NotificationConfig struct {
-	Token string
-	Url   string
-	Type  string
+	Type                 string
+	Token                string
+	WebhookURL           string
+	WebhookPath          string
+	WebhookListenAddress string
 }
 
 type NotificationEndpoints interface {

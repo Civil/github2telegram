@@ -3,6 +3,10 @@
 *.a
 *.so
 
+#vim stuff
+*.swp
+*.swo
+
 # Folders
 _obj
 _test
@@ -24,3 +28,8 @@ _testmain.go
 *.prof
 
 .DS_STORE
+
+cmd/ftest/ftest
+
+# Goland specific files
+.idea
