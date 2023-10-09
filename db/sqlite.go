@@ -333,6 +333,36 @@ func (d *SQLite) ListFeeds() ([]*Feed, error) {
 	return result, nil
 }
 
+func (d *SQLite) RemoveFeed(name, repo, filter, messagePattern string) error {
+	logger := zapwriter.Logger("remove_feed")
+	stmt, err := d.db.Prepare("DELETE FROM 'feeds' WHERE name=? and repo=? and filter=? and message_pattern=?")
+	if err != nil {
+		logger.Error("error creating statement",
+			zap.Error(err),
+		)
+		return err
+	}
+
+	_, err = stmt.Exec(name, repo, filter, messagePattern)
+	if err != nil {
+		logger.Error("error removing subscription",
+			zap.Error(err),
+		)
+	}
+
+	return err
+}
+
+func (d *SQLite) UpdateChatID(oldChatID, newChatID int64) error {
+	stmt, err := d.db.Prepare("UPDATE 'subscriptions' SET chat_id=? WHERE chat_id=?")
+	if err != nil {
+		return err
+	}
+
+	_, err = stmt.Exec(newChatID, oldChatID)
+	return err
+}
+
 func (d *SQLite) AddSubscribtion(endpoint, url, filter string, chatID int64) error {
 	stmt, err := d.db.Prepare("SELECT chat_id FROM 'subscriptions' where endpoint=? and url=? and filter=? and chat_id=?;")
 	if err != nil {

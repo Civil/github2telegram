@@ -13,10 +13,14 @@ type Database interface {
 	AddFeed(name, repo, filter, messagePattern string) (int, error)
 	GetFeed(name string) (*Feed, error)
 	ListFeeds() ([]*Feed, error)
+	RemoveFeed(name, repo, filter, messagePattern string) error
 
 	// Subscriptions
 	AddSubscribtion(endpoint, url, filter string, chatID int64) error
 	RemoveSubscribtion(endpoint, url, filter string, chatID int64) error
+
+	// Maintenance
+	UpdateChatID(oldChatID, newChatID int64) error
 
 	// Notification methods
 	GetNotificationMethods(url, filter string) ([]string, error)

@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -229,6 +230,11 @@ func (e *TelegramEndpoint) processResendQueue() {
 		case msg := <-e.resendQueue:
 			err := e.sendMessage(msg.ChatID, 0, msg.Message)
 			if err != nil {
+				if !e.checkUnrecoverableSendError(err) {
+					// We'll just forget that message if error here is unrecoverable
+					continue
+				}
+				msg.ChatID = e.checkAndChangeChatID(logger, msg.ChatID, err.Error())
 				e.resendQueue <- msg
 			}
 			time.Sleep(time.Second)
@@ -250,7 +256,8 @@ func (e *TelegramEndpoint) Send(url, filter, message string) error {
 	for _, id := range ids {
 		err = e.sendMessage(id, 0, message)
 		if err != nil {
-			if !e.checkError(err) {
+			// Check if we actually need to forget about that chat
+			if !e.checkUnrecoverableSendError(err) {
 				err2 := e.unsubscribe(logger, id, url, filter)
 				if err2 != nil {
 					logger.Warn("failed to unsubscribe",
@@ -266,11 +273,50 @@ func (e *TelegramEndpoint) Send(url, filter, message string) error {
 				}
 				continue
 			}
-			e.resendQueue <- &types.NotificationMessage{id, message}
+			// Check if we need to adjust our chat id
+			id = e.checkAndChangeChatID(logger, id, err.Error())
+			e.resendQueue <- &types.NotificationMessage{
+				ChatID:  id,
+				Message: message,
+			}
 		}
 	}
 
 	return nil
+}
+
+func (e *TelegramEndpoint) checkAndChangeChatID(logger *zap.Logger, id int64, error string) int64 {
+	if strings.Contains(error, "migrate to chat ID:") {
+		re := regexp.MustCompile(`migrate\s+to\s+chat\s+ID:\s([-0-9]+).`)
+		matches := re.FindStringSubmatch(error)
+		if len(matches) != 2 {
+			logger.Error("failed to parse new chat id, either no matches or too many matches found",
+				zap.String("original_error", error),
+			)
+			// cont
+		}
+		newIDStr := matches[1]
+		newID, err := strconv.ParseInt(newIDStr, 10, 64)
+		if err != nil {
+			logger.Error("failed to parse new chat id",
+				zap.String("newIDStr", newIDStr),
+				zap.String("original_error", error),
+				zap.Error(err),
+			)
+			return id
+		}
+		err = e.db.UpdateChatID(id, newID)
+		if err != nil {
+			logger.Error("failed to update chat id",
+				zap.Int64("OldChatID", id),
+				zap.Int64("NewChatID", newID),
+				zap.Error(err),
+			)
+			return id
+		}
+		id = newID
+	}
+	return id
 }
 
 func (e *TelegramEndpoint) sendMessage(chatID int64, messageID int, message string) error {
@@ -502,7 +548,7 @@ func (e *TelegramEndpoint) handlerSubscribe(tokens []string, update *telego.Upda
 	chatID := update.Message.Chat.ID
 	err := e.db.AddSubscribtion(TelegramEndpointName, url, filterName, chatID)
 	if err != nil {
-		if err == db.ErrAlreadyExists {
+		if errors.Is(err, db.ErrAlreadyExists) {
 			return errors.New("already subscribed")
 		}
 
@@ -591,14 +637,11 @@ func (e *TelegramEndpoint) handlerHelp(_ []string, update *telego.Update) error 
 	return e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, response)
 }
 
-var mdReplacer = strings.NewReplacer(
-	".", "\\.",
-)
-
 // Return true if we need to continue
-func (e *TelegramEndpoint) checkError(err error) bool {
+func (e *TelegramEndpoint) checkUnrecoverableSendError(err error) bool {
 	if strings.Contains(err.Error(), "chat not found") ||
 		strings.Contains(err.Error(), "bot was kicked") ||
+		strings.Contains(err.Error(), "bot was blocked by the user") ||
 		strings.Contains(err.Error(), "not enough rights to send text messages") {
 		return false
 	}
@@ -662,7 +705,7 @@ func (e *TelegramEndpoint) Process() {
 			if ok {
 				err = cmd.f(tokens, &update)
 				if err != nil {
-					m = mdReplacer.Replace(err.Error())
+					m = types.MdReplacer.Replace(err.Error())
 				}
 			}
 

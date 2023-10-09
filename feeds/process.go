@@ -1,6 +1,7 @@
 package feeds
 
 import (
+	"github.com/Civil/github2telegram/types"
 	"regexp"
 	"time"
 
@@ -144,12 +145,6 @@ func (f *Feed) SetCfg(cfg configs.FeedsConfig) {
 	f.cfg = cfg
 }
 
-// TODO: Create a proper text to markdown converter
-var mdReplacer = strings.NewReplacer(
-	".", "\\.",
-	"-", "\\-",
-)
-
 func (f *Feed) processSingleItem(cfg *configs.FeedsConfig, url string, item *gofeed.Item) {
 	logger := f.logger.With(
 		zap.String("item_title", item.Title),
@@ -195,10 +190,10 @@ func (f *Feed) processSingleItem(cfg *configs.FeedsConfig, url string, item *gof
 			// check if last tag haven't changed
 			if item.Title == cfg.Filters[i].LastTag {
 				changeType = DescriptionChange
-				notification = mdReplacer.Replace(cfg.Repo) + " description changed: " + item.Title + "\nLink: " + mdReplacer.Replace(item.Link)
+				notification = types.MdReplacer.Replace(cfg.Repo) + " description changed: " + item.Title + "\nLink: " + types.MdReplacer.Replace(item.Link)
 			} else {
 				changeType = NewRelease
-				notification = mdReplacer.Replace(cfg.Repo) + " tagged: " + mdReplacer.Replace(item.Title) + "\nLink: " + mdReplacer.Replace(item.Link)
+				notification = types.MdReplacer.Replace(cfg.Repo) + " tagged: " + types.MdReplacer.Replace(item.Title) + "\nLink: " + types.MdReplacer.Replace(item.Link)
 			}
 
 			content := html2md.Convert(item.Content)
@@ -292,6 +287,12 @@ func (f *Feed) ForceProcess() {
 			zap.Time("now", t0),
 			zap.Error(err),
 		)
+		if strings.Contains(err.Error(), "404 Not Found") {
+			err = f.db.RemoveFeed(f.Name, f.Repo, f.Filter, f.MessagePattern)
+			if err != nil {
+				f.logger.Error("error removing feed", zap.Error(err))
+			}
+		}
 		return
 	}
 
