@@ -3,6 +3,7 @@ package telegram
 import (
 	"fmt"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"strings"
 )
 
@@ -14,13 +15,17 @@ type tgLogger struct {
 }
 
 func (l *tgLogger) Debugf(format string, args ...any) {
+	// Do not process any kind of replacements if we don't have debug logs enabled
+	if !l.logger.Core().Enabled(zapcore.DebugLevel) {
+		return
+	}
 	var res string
 	if l.replacer != nil {
 		res = l.replacer.Replace(fmt.Sprintf(format, args...))
 	} else {
 		res = fmt.Sprintf(format, args...)
 	}
-	l.logger.Info("telegram api debug message",
+	l.logger.Debug("telegram api debug Message",
 		zap.String("data", res),
 	)
 }
@@ -32,7 +37,7 @@ func (l *tgLogger) Errorf(format string, args ...any) {
 	} else {
 		res = fmt.Sprintf(format, args...)
 	}
-	l.logger.Error("telegram api error message",
+	l.logger.Error("telegram api error Message",
 		zap.String("data", res),
 	)
 }

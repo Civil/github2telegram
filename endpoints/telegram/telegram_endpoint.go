@@ -6,6 +6,7 @@ import (
 	"github.com/Civil/github2telegram/db"
 	"github.com/Civil/github2telegram/endpoints"
 	"github.com/Civil/github2telegram/feeds"
+	"github.com/Civil/github2telegram/types"
 	"github.com/lomik/zapwriter"
 	"github.com/mymmrac/telego"
 	tu "github.com/mymmrac/telego/telegoutil"
@@ -36,11 +37,6 @@ type handlerWithDescription struct {
 
 var errUnauthorized = errors.New("unauthorized action")
 
-type notificationMessage struct {
-	chatID  int64
-	message string
-}
-
 type TelegramEndpoint struct {
 	api    *telego.Bot
 	admins map[int64][]user
@@ -50,7 +46,7 @@ type TelegramEndpoint struct {
 	commands map[string]handlerWithDescription
 
 	exitChan    <-chan struct{}
-	resendQueue chan *notificationMessage
+	resendQueue chan *types.NotificationMessage
 
 	tgLogger *tgLogger
 
@@ -85,7 +81,7 @@ func WithWebhookPath(path string) *endpoints.ConfigParams {
 
 func InitializeTelegramEndpoint(token string, exitChan <-chan struct{}, database db.Database, configParams ...*endpoints.ConfigParams) (*TelegramEndpoint, error) {
 	logger := zapwriter.Logger(TelegramEndpointName)
-	tgEndpointLogger := newTgLogger(logger, []string{"token", "<TOKEN REDACTED>"})
+	tgEndpointLogger := newTgLogger(logger, []string{token, "<TOKEN REDACTED>"})
 	bot, err := telego.NewBot(token, telego.WithLogger(tgEndpointLogger))
 	if err != nil {
 		return nil, err
@@ -96,7 +92,7 @@ func InitializeTelegramEndpoint(token string, exitChan <-chan struct{}, database
 		admins:      make(map[int64][]user),
 		logger:      logger,
 		exitChan:    exitChan,
-		resendQueue: make(chan *notificationMessage, 1000),
+		resendQueue: make(chan *types.NotificationMessage, 1000),
 		db:          database,
 		tgLogger:    tgEndpointLogger,
 	}
@@ -201,18 +197,37 @@ Example:
 		},
 	}
 
+	messages, err := e.db.GetMessagesFromResentQueue()
+	if err != nil {
+		logger.Fatal("failed to get messages from resend queue", zap.Error(err))
+	}
+
 	go e.processResendQueue()
+
+	for _, message := range messages {
+		e.resendQueue <- message
+	}
 
 	return e, nil
 }
 
 func (e *TelegramEndpoint) processResendQueue() {
+	logger := e.logger.With(zap.String("function", "processResendQueue"))
 	for {
 		select {
 		case <-e.exitChan:
+			messages := make([]*types.NotificationMessage, 0, len(e.resendQueue))
+			for m := range e.resendQueue {
+				messages = append(messages, m)
+			}
+			close(e.resendQueue)
+			err := e.db.AddMessagesToResentQueue(messages)
+			if err != nil {
+				logger.Error("failed to add messages to resend queue", zap.Error(err), zap.Any("messages_in_queue", messages))
+			}
 			return
 		case msg := <-e.resendQueue:
-			err := e.sendMessage(msg.chatID, 0, msg.message)
+			err := e.sendMessage(msg.ChatID, 0, msg.Message)
 			if err != nil {
 				e.resendQueue <- msg
 			}
@@ -235,7 +250,23 @@ func (e *TelegramEndpoint) Send(url, filter, message string) error {
 	for _, id := range ids {
 		err = e.sendMessage(id, 0, message)
 		if err != nil {
-			e.resendQueue <- &notificationMessage{id, message}
+			if !e.checkError(err) {
+				err2 := e.unsubscribe(logger, id, url, filter)
+				if err2 != nil {
+					logger.Warn("failed to unsubscribe",
+						zap.Error(err2),
+					)
+				} else {
+					logger.Warn("unsubscribed from chat",
+						zap.Int64("ChatID", id),
+						zap.String("url", url),
+						zap.String("filter", filter),
+						zap.String("reason", err.Error()),
+					)
+				}
+				continue
+			}
+			e.resendQueue <- &types.NotificationMessage{id, message}
 		}
 	}
 
@@ -253,7 +284,7 @@ func (e *TelegramEndpoint) sendMessage(chatID int64, messageID int, message stri
 
 	_, err := e.api.SendMessage(msg)
 	if err != nil {
-		e.logger.Error("failed to send message",
+		e.logger.Error("failed to send Message",
 			zap.Any("msg", msg),
 			zap.Error(err),
 		)
@@ -272,7 +303,7 @@ func (e *TelegramEndpoint) sendRawMessage(chatID int64, messageID int, message s
 
 	_, err := e.api.SendMessage(msg)
 	if err != nil {
-		e.logger.Error("failed to send raw message",
+		e.logger.Error("failed to send raw Message",
 			zap.Any("msg", msg),
 			zap.Error(err),
 		)
@@ -401,7 +432,7 @@ func (e *TelegramEndpoint) handlerNew(tokens []string, update *telego.Update) er
 
 	tmp := fmt.Sprintf(pattern, repo, "1.0")
 	if strings.Contains(tmp, "%!") {
-		return errors.New("Invalid message pattern!")
+		return errors.New("Invalid Message pattern!")
 	}
 
 	feed, err := feeds.NewFeed(repo, filter, name, pattern, e.db)
@@ -501,13 +532,22 @@ func (e *TelegramEndpoint) handlerUnsubscribe(tokens []string, update *telego.Up
 	url := tokens[1]
 	filterName := tokens[2]
 
+	chatID := update.Message.Chat.ID
+	err := e.unsubscribe(logger, chatID, url, filterName)
+	if err != nil {
+		return err
+	}
+
+	return e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "successfully unsubscribed")
+}
+
+func (e *TelegramEndpoint) unsubscribe(logger *zap.Logger, chatID int64, url string, filterName string) error {
 	found := isFilterExists(url, filterName)
 
 	if !found {
 		return errors.New("Unknown combination of url and filter, use /list to get list of possible feeds")
 	}
 
-	chatID := update.Message.Chat.ID
 	err := e.db.RemoveSubscribtion(TelegramEndpointName, url, filterName, chatID)
 	if err != nil {
 		logger.Error("error removing subscription",
@@ -520,8 +560,7 @@ func (e *TelegramEndpoint) handlerUnsubscribe(tokens []string, update *telego.Up
 
 		return errors.New("error occurred while trying to subscribe")
 	}
-
-	return e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "successfully unsubscribed")
+	return nil
 }
 
 func (e *TelegramEndpoint) handlerList(tokens []string, update *telego.Update) error {
@@ -537,7 +576,7 @@ func (e *TelegramEndpoint) handlerList(tokens []string, update *telego.Update) e
 	return e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, response)
 }
 
-func (e *TelegramEndpoint) handlerHelp(tokens []string, update *telego.Update) error {
+func (e *TelegramEndpoint) handlerHelp(_ []string, update *telego.Update) error {
 	response := ""
 	for _, v := range e.commands {
 		if v.hidden {
@@ -555,6 +594,17 @@ func (e *TelegramEndpoint) handlerHelp(tokens []string, update *telego.Update) e
 var mdReplacer = strings.NewReplacer(
 	".", "\\.",
 )
+
+// Return true if we need to continue
+func (e *TelegramEndpoint) checkError(err error) bool {
+	if strings.Contains(err.Error(), "chat not found") ||
+		strings.Contains(err.Error(), "bot was kicked") ||
+		strings.Contains(err.Error(), "not enough rights to send text messages") {
+		return false
+	}
+
+	return true
+}
 
 func (e *TelegramEndpoint) Process() {
 	logger := zapwriter.Logger(TelegramEndpointName)
@@ -590,7 +640,7 @@ func (e *TelegramEndpoint) Process() {
 				continue
 			}
 
-			logger.Debug("got message",
+			logger.Debug("got Message",
 				zap.String("from", update.Message.From.Username),
 				zap.String("text", update.Message.Text),
 			)
@@ -620,7 +670,7 @@ func (e *TelegramEndpoint) Process() {
 				err = e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, m)
 			}
 			if err != nil {
-				logger.Error("error sending message",
+				logger.Error("error sending Message",
 					zap.Int64("chat_id", update.Message.Chat.ID),
 					zap.String("from", update.Message.From.Username),
 					zap.String("text", update.Message.Text),

@@ -144,6 +144,12 @@ func (f *Feed) SetCfg(cfg configs.FeedsConfig) {
 	f.cfg = cfg
 }
 
+// TODO: Create a proper text to markdown converter
+var mdReplacer = strings.NewReplacer(
+	".", "\\.",
+	"-", "\\-",
+)
+
 func (f *Feed) processSingleItem(cfg *configs.FeedsConfig, url string, item *gofeed.Item) {
 	logger := f.logger.With(
 		zap.String("item_title", item.Title),
@@ -189,15 +195,15 @@ func (f *Feed) processSingleItem(cfg *configs.FeedsConfig, url string, item *gof
 			// check if last tag haven't changed
 			if item.Title == cfg.Filters[i].LastTag {
 				changeType = DescriptionChange
-				notification = cfg.Repo + " description changed: " + item.Title + "\nLink: " + item.Link
+				notification = mdReplacer.Replace(cfg.Repo) + " description changed: " + item.Title + "\nLink: " + mdReplacer.Replace(item.Link)
 			} else {
 				changeType = NewRelease
-				notification = cfg.Repo + " tagged: " + item.Title + "\nLink: " + item.Link
+				notification = mdReplacer.Replace(cfg.Repo) + " tagged: " + mdReplacer.Replace(item.Title) + "\nLink: " + mdReplacer.Replace(item.Link)
 			}
 
 			content := html2md.Convert(item.Content)
 			if len(content) > 250 {
-				content = content[:250] + "..."
+				content = content[:250] + "\\.\\.\\."
 				contentTruncated = true
 			}
 			content = strings.Replace(content, "```", "", 1)

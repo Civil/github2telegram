@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"github.com/Civil/github2telegram/types"
 	"time"
 
 	"github.com/Civil/github2telegram/configs"
@@ -11,7 +12,7 @@ import (
 )
 
 const (
-	currentSchemaVersion = 2
+	currentSchemaVersion = 3
 )
 
 type SQLite struct {
@@ -25,7 +26,7 @@ func initSqlite() Database {
 	configs.Config.DB, err = sql.Open("sqlite3", configs.Config.DatabaseURL)
 	if err != nil {
 		logger.Fatal("unable to open database file",
-			zap.Any("config", configs.Config),
+			zap.String("file", configs.Config.DatabaseURL),
 			zap.Error(err),
 		)
 	}
@@ -67,11 +68,16 @@ func initSqlite() Database {
 						'message_pattern' VARCHAR(255) NOT NULL
 					);
 
-					INSERT INTO 'schema_version' (id, version) values (1, 2);
+					CREATE TABLE IF NOT EXISTS 'resend_queue' (
+					    'id' INTEGER PRIMARY KEY AUTOINCREMENT,
+                        'chat_id' Int64,
+                        'message' TEXT NOT NULL
+					);
+
+					INSERT INTO 'schema_version' (id, version) values (1, 3);
 				`)
 			if err != nil {
 				logger.Fatal("failed to initialize database",
-					zap.Any("config", configs.Config),
 					zap.Error(err),
 				)
 			}
@@ -92,29 +98,68 @@ func initSqlite() Database {
 		}
 		rows.Close()
 
-		if schemaVersion != currentSchemaVersion {
-			switch schemaVersion {
-			case 1:
-				_, err = configs.Config.DB.Exec(`
+		if schemaVersion == 1 {
+			_, err = configs.Config.DB.Exec(`
 ALTER TABLE last_version ADD COLUMN 'last_tag' VARCHAR(255) NOT NULL DEFAULT '';
 
 UPDATE schema_version SET version = 2 WHERE id=1;
 				`)
 
-				if err != nil {
-					logger.Fatal("failed to migrate database",
-						zap.Int("databaseVersion", schemaVersion),
-						zap.Int("upgradingTo", currentSchemaVersion),
-						zap.Error(err),
-					)
-				}
-				// 'last_tag' VARCHAR(255) NOT NULL DEFAULT '',
-			default:
-				// Don't know how to migrate from this version
-				logger.Fatal("Unknown schema version specified",
-					zap.Int("version", schemaVersion),
+			if err != nil {
+				logger.Fatal("failed to migrate database",
+					zap.Int("databaseVersion", schemaVersion),
+					zap.Int("upgradingTo", currentSchemaVersion),
+					zap.Error(err),
 				)
 			}
+
+			_, err = configs.Config.DB.Exec(`
+UPDATE schema_version SET version = 2 WHERE id=1;`)
+			if err != nil {
+				logger.Fatal("failed to migrate database",
+					zap.Int("databaseVersion", schemaVersion),
+					zap.Int("upgradingTo", currentSchemaVersion),
+					zap.Error(err),
+				)
+			}
+
+			// We've successfully upgraded to schema version 2.
+			schemaVersion = 2
+		}
+
+		if schemaVersion == 2 {
+			_, err = configs.Config.DB.Exec(`	CREATE TABLE IF NOT EXISTS 'resend_queue' (
+					    'id' INTEGER PRIMARY KEY AUTOINCREMENT,
+                        'chat_id' Int64,
+                        'message' TEXT NOT NULL
+					);`)
+			if err != nil {
+				logger.Fatal("failed to migrate database",
+					zap.Int("databaseVersion", schemaVersion),
+					zap.Int("upgradingTo", currentSchemaVersion),
+					zap.Error(err),
+				)
+			}
+
+			_, err = configs.Config.DB.Exec(`
+UPDATE schema_version SET version = 3 WHERE id=1;`)
+			if err != nil {
+				logger.Fatal("failed to migrate database",
+					zap.Int("databaseVersion", schemaVersion),
+					zap.Int("upgradingTo", currentSchemaVersion),
+					zap.Error(err),
+				)
+			}
+
+			// We've successfully upgraded to schema version 3.
+			schemaVersion = 3
+		}
+
+		if schemaVersion != currentSchemaVersion {
+			// Don't know how to migrate from this version
+			logger.Fatal("Unknown schema version specified",
+				zap.Int("version", schemaVersion),
+			)
 		}
 	}
 
@@ -445,4 +490,59 @@ func (d *SQLite) UpdateLastUpdateTime(url, filter, tag string, t time.Time) {
 		)
 		return
 	}
+}
+
+func (db *SQLite) AddMessagesToResentQueue(messages []*types.NotificationMessage) error {
+	logger := zapwriter.Logger("add_messages_to_resent_queue")
+	stmt, err := db.db.Prepare("INSERT INTO 'resend_queue' (chat_id, message) VALUES (?, ?)")
+	if err != nil {
+		logger.Error("error creating statement",
+			zap.Error(err),
+		)
+		return err
+	}
+
+	for _, m := range messages {
+		_, err = stmt.Exec(m.ChatID, m.Message)
+		if err != nil {
+			logger.Error("error updating data",
+				zap.Error(err),
+			)
+			return err
+		}
+	}
+	return nil
+}
+
+func (db *SQLite) GetMessagesFromResentQueue() ([]*types.NotificationMessage, error) {
+	logger := zapwriter.Logger("get_messages_from_resent_queue")
+	stmt, err := db.db.Prepare("SELECT chat_id, message FROM 'resend_queue'")
+	if err != nil {
+		logger.Error("error creating statement",
+			zap.Error(err),
+		)
+		return nil, err
+	}
+	rows, err := stmt.Query()
+	if err != nil {
+		logger.Error("error retrieving data",
+			zap.Error(err),
+		)
+		return nil, err
+	}
+	results := make([]*types.NotificationMessage, 0)
+	for rows.Next() {
+		res := &types.NotificationMessage{}
+		err = rows.Scan(&res.ChatID, &res.Message)
+		if err != nil {
+			logger.Error("error retrieving data",
+				zap.Error(err),
+			)
+			continue
+		}
+		results = append(results, res)
+	}
+	_ = rows.Close()
+
+	return nil, nil
 }

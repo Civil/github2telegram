@@ -3,7 +3,6 @@ module github.com/Civil/github2telegram
 go 1.21.2
 
 require (
-	github.com/gomarkdown/markdown v0.0.0-20230922112808-5421fefb8386
 	github.com/lomik/zapwriter v0.0.0-20210624082824-c1161d1eb463
 	github.com/lunny/html2md v0.0.0-20181018071239-7d234de44546
 	github.com/mattn/go-sqlite3 v1.14.17
