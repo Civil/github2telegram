@@ -1,16 +1,17 @@
 package feeds
 
 import (
-	"github.com/Civil/github2telegram/types"
+	"math/rand"
 	"regexp"
+	"strings"
 	"time"
+
+	"github.com/Civil/github2telegram/types"
+
+	"github.com/pkg/errors"
 
 	"github.com/Civil/github2telegram/configs"
 	"github.com/Civil/github2telegram/db"
-	"github.com/pkg/errors"
-
-	"math/rand"
-	"strings"
 
 	"github.com/lomik/zapwriter"
 	"github.com/lunny/html2md"
@@ -193,16 +194,16 @@ func (f *Feed) processSingleItem(cfg *configs.FeedsConfig, url string, item *gof
 			logger.Debug("filter matched")
 			contentTruncated := false
 			var changeType UpdateType
-			var notification string
 
 			// check if last tag haven't changed
 			if item.Title == cfg.Filters[i].LastTag {
 				changeType = DescriptionChange
-				notification = types.MdReplacer.Replace(cfg.Repo) + " description changed: " + item.Title + "\nLink: " + types.MdReplacer.Replace(item.Link)
+
 			} else {
 				changeType = NewRelease
-				notification = types.MdReplacer.Replace(cfg.Repo) + " tagged: " + types.MdReplacer.Replace(item.Title) + "\nLink: " + types.MdReplacer.Replace(item.Link)
 			}
+
+			notification := types.MdReplacer.Replace(cfg.Repo) + changeType.String() + types.MdReplacer.Replace(item.Title) + "\nLink: " + types.MdReplacer.Replace(item.Link)
 
 			content := html2md.Convert(item.Content)
 			if len(content) > 250 {

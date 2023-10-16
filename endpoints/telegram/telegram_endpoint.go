@@ -2,21 +2,23 @@ package telegram
 
 import (
 	"fmt"
-	"github.com/Civil/github2telegram/configs"
-	"github.com/Civil/github2telegram/db"
-	"github.com/Civil/github2telegram/endpoints"
-	"github.com/Civil/github2telegram/feeds"
-	"github.com/Civil/github2telegram/types"
-	"github.com/lomik/zapwriter"
-	"github.com/mymmrac/telego"
-	tu "github.com/mymmrac/telego/telegoutil"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/lomik/zapwriter"
+	"github.com/mymmrac/telego"
+	tu "github.com/mymmrac/telego/telegoutil"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
+
+	"github.com/Civil/github2telegram/configs"
+	"github.com/Civil/github2telegram/db"
+	"github.com/Civil/github2telegram/endpoints"
+	"github.com/Civil/github2telegram/feeds"
+	"github.com/Civil/github2telegram/types"
 )
 
 const (
@@ -287,7 +289,7 @@ func (e *TelegramEndpoint) Send(url, filter, message string) error {
 
 func (e *TelegramEndpoint) checkAndChangeChatID(logger *zap.Logger, id int64, error string) int64 {
 	if strings.Contains(error, "migrate to chat ID:") {
-		re := regexp.MustCompile(`migrate\s+to\s+chat\s+ID:\s([-0-9]+).`)
+		re := regexp.MustCompile(`migrate\s+to\s+chat\s+ID:\s([-0-9]+)`)
 		matches := re.FindStringSubmatch(error)
 		if len(matches) != 2 {
 			logger.Error("failed to parse new chat id, either no matches or too many matches found",
@@ -302,6 +304,14 @@ func (e *TelegramEndpoint) checkAndChangeChatID(logger *zap.Logger, id int64, er
 				zap.String("newIDStr", newIDStr),
 				zap.String("original_error", error),
 				zap.Error(err),
+			)
+			return id
+		}
+		if newID == 0 {
+			logger.Error("failed to parse new chat id",
+				zap.String("newIDStr", newIDStr),
+				zap.String("original_error", error),
+				zap.Any("matches", matches),
 			)
 			return id
 		}
@@ -546,6 +556,11 @@ func (e *TelegramEndpoint) handlerSubscribe(tokens []string, update *telego.Upda
 	}
 
 	chatID := update.Message.Chat.ID
+	if chatID == 0 {
+		logger.Error("chat id is 0, that shouldn't happen", zap.Any("update", update))
+		_ = e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "failed to subscribe as bot cannot determine chat_id, please try again later")
+		return errors.New("cannot detect chat_id, subscription failed")
+	}
 	err := e.db.AddSubscribtion(TelegramEndpointName, url, filterName, chatID)
 	if err != nil {
 		if errors.Is(err, db.ErrAlreadyExists) {
