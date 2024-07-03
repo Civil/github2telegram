@@ -72,6 +72,12 @@ func (p *DeleteWebhookParams) WithDropPendingUpdates() *DeleteWebhookParams {
 	return p
 }
 
+// WithBusinessConnectionID adds business connection ID parameter
+func (p *SendMessageParams) WithBusinessConnectionID(businessConnectionID string) *SendMessageParams {
+	p.BusinessConnectionID = businessConnectionID
+	return p
+}
+
 // WithChatID adds chat ID parameter
 func (p *SendMessageParams) WithChatID(chatID ChatID) *SendMessageParams {
 	p.ChatID = chatID
@@ -102,9 +108,9 @@ func (p *SendMessageParams) WithEntities(entities ...MessageEntity) *SendMessage
 	return p
 }
 
-// WithDisableWebPagePreview adds disable web page preview parameter
-func (p *SendMessageParams) WithDisableWebPagePreview() *SendMessageParams {
-	p.DisableWebPagePreview = true
+// WithLinkPreviewOptions adds link preview options parameter
+func (p *SendMessageParams) WithLinkPreviewOptions(linkPreviewOptions *LinkPreviewOptions) *SendMessageParams {
+	p.LinkPreviewOptions = linkPreviewOptions
 	return p
 }
 
@@ -120,15 +126,15 @@ func (p *SendMessageParams) WithProtectContent() *SendMessageParams {
 	return p
 }
 
-// WithReplyToMessageID adds reply to message ID parameter
-func (p *SendMessageParams) WithReplyToMessageID(replyToMessageID int) *SendMessageParams {
-	p.ReplyToMessageID = replyToMessageID
+// WithMessageEffectID adds message effect ID parameter
+func (p *SendMessageParams) WithMessageEffectID(messageEffectID string) *SendMessageParams {
+	p.MessageEffectID = messageEffectID
 	return p
 }
 
-// WithAllowSendingWithoutReply adds allow sending without reply parameter
-func (p *SendMessageParams) WithAllowSendingWithoutReply() *SendMessageParams {
-	p.AllowSendingWithoutReply = true
+// WithReplyParameters adds reply parameters parameter
+func (p *SendMessageParams) WithReplyParameters(replyParameters *ReplyParameters) *SendMessageParams {
+	p.ReplyParameters = replyParameters
 	return p
 }
 
@@ -175,6 +181,42 @@ func (p *ForwardMessageParams) WithMessageID(messageID int) *ForwardMessageParam
 }
 
 // WithChatID adds chat ID parameter
+func (p *ForwardMessagesParams) WithChatID(chatID ChatID) *ForwardMessagesParams {
+	p.ChatID = chatID
+	return p
+}
+
+// WithMessageThreadID adds message thread ID parameter
+func (p *ForwardMessagesParams) WithMessageThreadID(messageThreadID int) *ForwardMessagesParams {
+	p.MessageThreadID = messageThreadID
+	return p
+}
+
+// WithFromChatID adds from chat ID parameter
+func (p *ForwardMessagesParams) WithFromChatID(fromChatID ChatID) *ForwardMessagesParams {
+	p.FromChatID = fromChatID
+	return p
+}
+
+// WithMessageIDs adds message ids parameter
+func (p *ForwardMessagesParams) WithMessageIDs(messageIDs ...int) *ForwardMessagesParams {
+	p.MessageIDs = messageIDs
+	return p
+}
+
+// WithDisableNotification adds disable notification parameter
+func (p *ForwardMessagesParams) WithDisableNotification() *ForwardMessagesParams {
+	p.DisableNotification = true
+	return p
+}
+
+// WithProtectContent adds protect content parameter
+func (p *ForwardMessagesParams) WithProtectContent() *ForwardMessagesParams {
+	p.ProtectContent = true
+	return p
+}
+
+// WithChatID adds chat ID parameter
 func (p *CopyMessageParams) WithChatID(chatID ChatID) *CopyMessageParams {
 	p.ChatID = chatID
 	return p
@@ -216,6 +258,12 @@ func (p *CopyMessageParams) WithCaptionEntities(captionEntities ...MessageEntity
 	return p
 }
 
+// WithShowCaptionAboveMedia adds show caption above media parameter
+func (p *CopyMessageParams) WithShowCaptionAboveMedia() *CopyMessageParams {
+	p.ShowCaptionAboveMedia = true
+	return p
+}
+
 // WithDisableNotification adds disable notification parameter
 func (p *CopyMessageParams) WithDisableNotification() *CopyMessageParams {
 	p.DisableNotification = true
@@ -228,21 +276,63 @@ func (p *CopyMessageParams) WithProtectContent() *CopyMessageParams {
 	return p
 }
 
-// WithReplyToMessageID adds reply to message ID parameter
-func (p *CopyMessageParams) WithReplyToMessageID(replyToMessageID int) *CopyMessageParams {
-	p.ReplyToMessageID = replyToMessageID
-	return p
-}
-
-// WithAllowSendingWithoutReply adds allow sending without reply parameter
-func (p *CopyMessageParams) WithAllowSendingWithoutReply() *CopyMessageParams {
-	p.AllowSendingWithoutReply = true
+// WithReplyParameters adds reply parameters parameter
+func (p *CopyMessageParams) WithReplyParameters(replyParameters *ReplyParameters) *CopyMessageParams {
+	p.ReplyParameters = replyParameters
 	return p
 }
 
 // WithReplyMarkup adds reply markup parameter
 func (p *CopyMessageParams) WithReplyMarkup(replyMarkup ReplyMarkup) *CopyMessageParams {
 	p.ReplyMarkup = replyMarkup
+	return p
+}
+
+// WithChatID adds chat ID parameter
+func (p *CopyMessagesParams) WithChatID(chatID ChatID) *CopyMessagesParams {
+	p.ChatID = chatID
+	return p
+}
+
+// WithMessageThreadID adds message thread ID parameter
+func (p *CopyMessagesParams) WithMessageThreadID(messageThreadID int) *CopyMessagesParams {
+	p.MessageThreadID = messageThreadID
+	return p
+}
+
+// WithFromChatID adds from chat ID parameter
+func (p *CopyMessagesParams) WithFromChatID(fromChatID ChatID) *CopyMessagesParams {
+	p.FromChatID = fromChatID
+	return p
+}
+
+// WithMessageIDs adds message ids parameter
+func (p *CopyMessagesParams) WithMessageIDs(messageIDs ...int) *CopyMessagesParams {
+	p.MessageIDs = messageIDs
+	return p
+}
+
+// WithDisableNotification adds disable notification parameter
+func (p *CopyMessagesParams) WithDisableNotification() *CopyMessagesParams {
+	p.DisableNotification = true
+	return p
+}
+
+// WithProtectContent adds protect content parameter
+func (p *CopyMessagesParams) WithProtectContent() *CopyMessagesParams {
+	p.ProtectContent = true
+	return p
+}
+
+// WithRemoveCaption adds remove caption parameter
+func (p *CopyMessagesParams) WithRemoveCaption() *CopyMessagesParams {
+	p.RemoveCaption = true
+	return p
+}
+
+// WithBusinessConnectionID adds business connection ID parameter
+func (p *SendPhotoParams) WithBusinessConnectionID(businessConnectionID string) *SendPhotoParams {
+	p.BusinessConnectionID = businessConnectionID
 	return p
 }
 
@@ -282,6 +372,12 @@ func (p *SendPhotoParams) WithCaptionEntities(captionEntities ...MessageEntity) 
 	return p
 }
 
+// WithShowCaptionAboveMedia adds show caption above media parameter
+func (p *SendPhotoParams) WithShowCaptionAboveMedia() *SendPhotoParams {
+	p.ShowCaptionAboveMedia = true
+	return p
+}
+
 // WithHasSpoiler adds has spoiler parameter
 func (p *SendPhotoParams) WithHasSpoiler() *SendPhotoParams {
 	p.HasSpoiler = true
@@ -300,21 +396,27 @@ func (p *SendPhotoParams) WithProtectContent() *SendPhotoParams {
 	return p
 }
 
-// WithReplyToMessageID adds reply to message ID parameter
-func (p *SendPhotoParams) WithReplyToMessageID(replyToMessageID int) *SendPhotoParams {
-	p.ReplyToMessageID = replyToMessageID
+// WithMessageEffectID adds message effect ID parameter
+func (p *SendPhotoParams) WithMessageEffectID(messageEffectID string) *SendPhotoParams {
+	p.MessageEffectID = messageEffectID
 	return p
 }
 
-// WithAllowSendingWithoutReply adds allow sending without reply parameter
-func (p *SendPhotoParams) WithAllowSendingWithoutReply() *SendPhotoParams {
-	p.AllowSendingWithoutReply = true
+// WithReplyParameters adds reply parameters parameter
+func (p *SendPhotoParams) WithReplyParameters(replyParameters *ReplyParameters) *SendPhotoParams {
+	p.ReplyParameters = replyParameters
 	return p
 }
 
 // WithReplyMarkup adds reply markup parameter
 func (p *SendPhotoParams) WithReplyMarkup(replyMarkup ReplyMarkup) *SendPhotoParams {
 	p.ReplyMarkup = replyMarkup
+	return p
+}
+
+// WithBusinessConnectionID adds business connection ID parameter
+func (p *SendAudioParams) WithBusinessConnectionID(businessConnectionID string) *SendAudioParams {
+	p.BusinessConnectionID = businessConnectionID
 	return p
 }
 
@@ -390,21 +492,27 @@ func (p *SendAudioParams) WithProtectContent() *SendAudioParams {
 	return p
 }
 
-// WithReplyToMessageID adds reply to message ID parameter
-func (p *SendAudioParams) WithReplyToMessageID(replyToMessageID int) *SendAudioParams {
-	p.ReplyToMessageID = replyToMessageID
+// WithMessageEffectID adds message effect ID parameter
+func (p *SendAudioParams) WithMessageEffectID(messageEffectID string) *SendAudioParams {
+	p.MessageEffectID = messageEffectID
 	return p
 }
 
-// WithAllowSendingWithoutReply adds allow sending without reply parameter
-func (p *SendAudioParams) WithAllowSendingWithoutReply() *SendAudioParams {
-	p.AllowSendingWithoutReply = true
+// WithReplyParameters adds reply parameters parameter
+func (p *SendAudioParams) WithReplyParameters(replyParameters *ReplyParameters) *SendAudioParams {
+	p.ReplyParameters = replyParameters
 	return p
 }
 
 // WithReplyMarkup adds reply markup parameter
 func (p *SendAudioParams) WithReplyMarkup(replyMarkup ReplyMarkup) *SendAudioParams {
 	p.ReplyMarkup = replyMarkup
+	return p
+}
+
+// WithBusinessConnectionID adds business connection ID parameter
+func (p *SendDocumentParams) WithBusinessConnectionID(businessConnectionID string) *SendDocumentParams {
+	p.BusinessConnectionID = businessConnectionID
 	return p
 }
 
@@ -468,21 +576,27 @@ func (p *SendDocumentParams) WithProtectContent() *SendDocumentParams {
 	return p
 }
 
-// WithReplyToMessageID adds reply to message ID parameter
-func (p *SendDocumentParams) WithReplyToMessageID(replyToMessageID int) *SendDocumentParams {
-	p.ReplyToMessageID = replyToMessageID
+// WithMessageEffectID adds message effect ID parameter
+func (p *SendDocumentParams) WithMessageEffectID(messageEffectID string) *SendDocumentParams {
+	p.MessageEffectID = messageEffectID
 	return p
 }
 
-// WithAllowSendingWithoutReply adds allow sending without reply parameter
-func (p *SendDocumentParams) WithAllowSendingWithoutReply() *SendDocumentParams {
-	p.AllowSendingWithoutReply = true
+// WithReplyParameters adds reply parameters parameter
+func (p *SendDocumentParams) WithReplyParameters(replyParameters *ReplyParameters) *SendDocumentParams {
+	p.ReplyParameters = replyParameters
 	return p
 }
 
 // WithReplyMarkup adds reply markup parameter
 func (p *SendDocumentParams) WithReplyMarkup(replyMarkup ReplyMarkup) *SendDocumentParams {
 	p.ReplyMarkup = replyMarkup
+	return p
+}
+
+// WithBusinessConnectionID adds business connection ID parameter
+func (p *SendVideoParams) WithBusinessConnectionID(businessConnectionID string) *SendVideoParams {
+	p.BusinessConnectionID = businessConnectionID
 	return p
 }
 
@@ -546,6 +660,12 @@ func (p *SendVideoParams) WithCaptionEntities(captionEntities ...MessageEntity) 
 	return p
 }
 
+// WithShowCaptionAboveMedia adds show caption above media parameter
+func (p *SendVideoParams) WithShowCaptionAboveMedia() *SendVideoParams {
+	p.ShowCaptionAboveMedia = true
+	return p
+}
+
 // WithHasSpoiler adds has spoiler parameter
 func (p *SendVideoParams) WithHasSpoiler() *SendVideoParams {
 	p.HasSpoiler = true
@@ -570,21 +690,27 @@ func (p *SendVideoParams) WithProtectContent() *SendVideoParams {
 	return p
 }
 
-// WithReplyToMessageID adds reply to message ID parameter
-func (p *SendVideoParams) WithReplyToMessageID(replyToMessageID int) *SendVideoParams {
-	p.ReplyToMessageID = replyToMessageID
+// WithMessageEffectID adds message effect ID parameter
+func (p *SendVideoParams) WithMessageEffectID(messageEffectID string) *SendVideoParams {
+	p.MessageEffectID = messageEffectID
 	return p
 }
 
-// WithAllowSendingWithoutReply adds allow sending without reply parameter
-func (p *SendVideoParams) WithAllowSendingWithoutReply() *SendVideoParams {
-	p.AllowSendingWithoutReply = true
+// WithReplyParameters adds reply parameters parameter
+func (p *SendVideoParams) WithReplyParameters(replyParameters *ReplyParameters) *SendVideoParams {
+	p.ReplyParameters = replyParameters
 	return p
 }
 
 // WithReplyMarkup adds reply markup parameter
 func (p *SendVideoParams) WithReplyMarkup(replyMarkup ReplyMarkup) *SendVideoParams {
 	p.ReplyMarkup = replyMarkup
+	return p
+}
+
+// WithBusinessConnectionID adds business connection ID parameter
+func (p *SendAnimationParams) WithBusinessConnectionID(businessConnectionID string) *SendAnimationParams {
+	p.BusinessConnectionID = businessConnectionID
 	return p
 }
 
@@ -648,6 +774,12 @@ func (p *SendAnimationParams) WithCaptionEntities(captionEntities ...MessageEnti
 	return p
 }
 
+// WithShowCaptionAboveMedia adds show caption above media parameter
+func (p *SendAnimationParams) WithShowCaptionAboveMedia() *SendAnimationParams {
+	p.ShowCaptionAboveMedia = true
+	return p
+}
+
 // WithHasSpoiler adds has spoiler parameter
 func (p *SendAnimationParams) WithHasSpoiler() *SendAnimationParams {
 	p.HasSpoiler = true
@@ -666,21 +798,27 @@ func (p *SendAnimationParams) WithProtectContent() *SendAnimationParams {
 	return p
 }
 
-// WithReplyToMessageID adds reply to message ID parameter
-func (p *SendAnimationParams) WithReplyToMessageID(replyToMessageID int) *SendAnimationParams {
-	p.ReplyToMessageID = replyToMessageID
+// WithMessageEffectID adds message effect ID parameter
+func (p *SendAnimationParams) WithMessageEffectID(messageEffectID string) *SendAnimationParams {
+	p.MessageEffectID = messageEffectID
 	return p
 }
 
-// WithAllowSendingWithoutReply adds allow sending without reply parameter
-func (p *SendAnimationParams) WithAllowSendingWithoutReply() *SendAnimationParams {
-	p.AllowSendingWithoutReply = true
+// WithReplyParameters adds reply parameters parameter
+func (p *SendAnimationParams) WithReplyParameters(replyParameters *ReplyParameters) *SendAnimationParams {
+	p.ReplyParameters = replyParameters
 	return p
 }
 
 // WithReplyMarkup adds reply markup parameter
 func (p *SendAnimationParams) WithReplyMarkup(replyMarkup ReplyMarkup) *SendAnimationParams {
 	p.ReplyMarkup = replyMarkup
+	return p
+}
+
+// WithBusinessConnectionID adds business connection ID parameter
+func (p *SendVoiceParams) WithBusinessConnectionID(businessConnectionID string) *SendVoiceParams {
+	p.BusinessConnectionID = businessConnectionID
 	return p
 }
 
@@ -738,21 +876,27 @@ func (p *SendVoiceParams) WithProtectContent() *SendVoiceParams {
 	return p
 }
 
-// WithReplyToMessageID adds reply to message ID parameter
-func (p *SendVoiceParams) WithReplyToMessageID(replyToMessageID int) *SendVoiceParams {
-	p.ReplyToMessageID = replyToMessageID
+// WithMessageEffectID adds message effect ID parameter
+func (p *SendVoiceParams) WithMessageEffectID(messageEffectID string) *SendVoiceParams {
+	p.MessageEffectID = messageEffectID
 	return p
 }
 
-// WithAllowSendingWithoutReply adds allow sending without reply parameter
-func (p *SendVoiceParams) WithAllowSendingWithoutReply() *SendVoiceParams {
-	p.AllowSendingWithoutReply = true
+// WithReplyParameters adds reply parameters parameter
+func (p *SendVoiceParams) WithReplyParameters(replyParameters *ReplyParameters) *SendVoiceParams {
+	p.ReplyParameters = replyParameters
 	return p
 }
 
 // WithReplyMarkup adds reply markup parameter
 func (p *SendVoiceParams) WithReplyMarkup(replyMarkup ReplyMarkup) *SendVoiceParams {
 	p.ReplyMarkup = replyMarkup
+	return p
+}
+
+// WithBusinessConnectionID adds business connection ID parameter
+func (p *SendVideoNoteParams) WithBusinessConnectionID(businessConnectionID string) *SendVideoNoteParams {
+	p.BusinessConnectionID = businessConnectionID
 	return p
 }
 
@@ -804,21 +948,27 @@ func (p *SendVideoNoteParams) WithProtectContent() *SendVideoNoteParams {
 	return p
 }
 
-// WithReplyToMessageID adds reply to message ID parameter
-func (p *SendVideoNoteParams) WithReplyToMessageID(replyToMessageID int) *SendVideoNoteParams {
-	p.ReplyToMessageID = replyToMessageID
+// WithMessageEffectID adds message effect ID parameter
+func (p *SendVideoNoteParams) WithMessageEffectID(messageEffectID string) *SendVideoNoteParams {
+	p.MessageEffectID = messageEffectID
 	return p
 }
 
-// WithAllowSendingWithoutReply adds allow sending without reply parameter
-func (p *SendVideoNoteParams) WithAllowSendingWithoutReply() *SendVideoNoteParams {
-	p.AllowSendingWithoutReply = true
+// WithReplyParameters adds reply parameters parameter
+func (p *SendVideoNoteParams) WithReplyParameters(replyParameters *ReplyParameters) *SendVideoNoteParams {
+	p.ReplyParameters = replyParameters
 	return p
 }
 
 // WithReplyMarkup adds reply markup parameter
 func (p *SendVideoNoteParams) WithReplyMarkup(replyMarkup ReplyMarkup) *SendVideoNoteParams {
 	p.ReplyMarkup = replyMarkup
+	return p
+}
+
+// WithBusinessConnectionID adds business connection ID parameter
+func (p *SendMediaGroupParams) WithBusinessConnectionID(businessConnectionID string) *SendMediaGroupParams {
+	p.BusinessConnectionID = businessConnectionID
 	return p
 }
 
@@ -852,15 +1002,21 @@ func (p *SendMediaGroupParams) WithProtectContent() *SendMediaGroupParams {
 	return p
 }
 
-// WithReplyToMessageID adds reply to message ID parameter
-func (p *SendMediaGroupParams) WithReplyToMessageID(replyToMessageID int) *SendMediaGroupParams {
-	p.ReplyToMessageID = replyToMessageID
+// WithMessageEffectID adds message effect ID parameter
+func (p *SendMediaGroupParams) WithMessageEffectID(messageEffectID string) *SendMediaGroupParams {
+	p.MessageEffectID = messageEffectID
 	return p
 }
 
-// WithAllowSendingWithoutReply adds allow sending without reply parameter
-func (p *SendMediaGroupParams) WithAllowSendingWithoutReply() *SendMediaGroupParams {
-	p.AllowSendingWithoutReply = true
+// WithReplyParameters adds reply parameters parameter
+func (p *SendMediaGroupParams) WithReplyParameters(replyParameters *ReplyParameters) *SendMediaGroupParams {
+	p.ReplyParameters = replyParameters
+	return p
+}
+
+// WithBusinessConnectionID adds business connection ID parameter
+func (p *SendLocationParams) WithBusinessConnectionID(businessConnectionID string) *SendLocationParams {
+	p.BusinessConnectionID = businessConnectionID
 	return p
 }
 
@@ -906,21 +1062,27 @@ func (p *SendLocationParams) WithProtectContent() *SendLocationParams {
 	return p
 }
 
-// WithReplyToMessageID adds reply to message ID parameter
-func (p *SendLocationParams) WithReplyToMessageID(replyToMessageID int) *SendLocationParams {
-	p.ReplyToMessageID = replyToMessageID
+// WithMessageEffectID adds message effect ID parameter
+func (p *SendLocationParams) WithMessageEffectID(messageEffectID string) *SendLocationParams {
+	p.MessageEffectID = messageEffectID
 	return p
 }
 
-// WithAllowSendingWithoutReply adds allow sending without reply parameter
-func (p *SendLocationParams) WithAllowSendingWithoutReply() *SendLocationParams {
-	p.AllowSendingWithoutReply = true
+// WithReplyParameters adds reply parameters parameter
+func (p *SendLocationParams) WithReplyParameters(replyParameters *ReplyParameters) *SendLocationParams {
+	p.ReplyParameters = replyParameters
 	return p
 }
 
 // WithReplyMarkup adds reply markup parameter
 func (p *SendLocationParams) WithReplyMarkup(replyMarkup ReplyMarkup) *SendLocationParams {
 	p.ReplyMarkup = replyMarkup
+	return p
+}
+
+// WithBusinessConnectionID adds business connection ID parameter
+func (p *SendVenueParams) WithBusinessConnectionID(businessConnectionID string) *SendVenueParams {
+	p.BusinessConnectionID = businessConnectionID
 	return p
 }
 
@@ -984,21 +1146,27 @@ func (p *SendVenueParams) WithProtectContent() *SendVenueParams {
 	return p
 }
 
-// WithReplyToMessageID adds reply to message ID parameter
-func (p *SendVenueParams) WithReplyToMessageID(replyToMessageID int) *SendVenueParams {
-	p.ReplyToMessageID = replyToMessageID
+// WithMessageEffectID adds message effect ID parameter
+func (p *SendVenueParams) WithMessageEffectID(messageEffectID string) *SendVenueParams {
+	p.MessageEffectID = messageEffectID
 	return p
 }
 
-// WithAllowSendingWithoutReply adds allow sending without reply parameter
-func (p *SendVenueParams) WithAllowSendingWithoutReply() *SendVenueParams {
-	p.AllowSendingWithoutReply = true
+// WithReplyParameters adds reply parameters parameter
+func (p *SendVenueParams) WithReplyParameters(replyParameters *ReplyParameters) *SendVenueParams {
+	p.ReplyParameters = replyParameters
 	return p
 }
 
 // WithReplyMarkup adds reply markup parameter
 func (p *SendVenueParams) WithReplyMarkup(replyMarkup ReplyMarkup) *SendVenueParams {
 	p.ReplyMarkup = replyMarkup
+	return p
+}
+
+// WithBusinessConnectionID adds business connection ID parameter
+func (p *SendContactParams) WithBusinessConnectionID(businessConnectionID string) *SendContactParams {
+	p.BusinessConnectionID = businessConnectionID
 	return p
 }
 
@@ -1050,21 +1218,27 @@ func (p *SendContactParams) WithProtectContent() *SendContactParams {
 	return p
 }
 
-// WithReplyToMessageID adds reply to message ID parameter
-func (p *SendContactParams) WithReplyToMessageID(replyToMessageID int) *SendContactParams {
-	p.ReplyToMessageID = replyToMessageID
+// WithMessageEffectID adds message effect ID parameter
+func (p *SendContactParams) WithMessageEffectID(messageEffectID string) *SendContactParams {
+	p.MessageEffectID = messageEffectID
 	return p
 }
 
-// WithAllowSendingWithoutReply adds allow sending without reply parameter
-func (p *SendContactParams) WithAllowSendingWithoutReply() *SendContactParams {
-	p.AllowSendingWithoutReply = true
+// WithReplyParameters adds reply parameters parameter
+func (p *SendContactParams) WithReplyParameters(replyParameters *ReplyParameters) *SendContactParams {
+	p.ReplyParameters = replyParameters
 	return p
 }
 
 // WithReplyMarkup adds reply markup parameter
 func (p *SendContactParams) WithReplyMarkup(replyMarkup ReplyMarkup) *SendContactParams {
 	p.ReplyMarkup = replyMarkup
+	return p
+}
+
+// WithBusinessConnectionID adds business connection ID parameter
+func (p *SendPollParams) WithBusinessConnectionID(businessConnectionID string) *SendPollParams {
+	p.BusinessConnectionID = businessConnectionID
 	return p
 }
 
@@ -1086,8 +1260,20 @@ func (p *SendPollParams) WithQuestion(question string) *SendPollParams {
 	return p
 }
 
+// WithQuestionParseMode adds question parse mode parameter
+func (p *SendPollParams) WithQuestionParseMode(questionParseMode string) *SendPollParams {
+	p.QuestionParseMode = questionParseMode
+	return p
+}
+
+// WithQuestionEntities adds question entities parameter
+func (p *SendPollParams) WithQuestionEntities(questionEntities ...MessageEntity) *SendPollParams {
+	p.QuestionEntities = questionEntities
+	return p
+}
+
 // WithOptions adds options parameter
-func (p *SendPollParams) WithOptions(options ...string) *SendPollParams {
+func (p *SendPollParams) WithOptions(options ...InputPollOption) *SendPollParams {
 	p.Options = options
 	return p
 }
@@ -1112,7 +1298,7 @@ func (p *SendPollParams) WithAllowsMultipleAnswers() *SendPollParams {
 
 // WithCorrectOptionID adds correct option ID parameter
 func (p *SendPollParams) WithCorrectOptionID(correctOptionID int) *SendPollParams {
-	p.CorrectOptionID = correctOptionID
+	p.CorrectOptionID = ToPtr(correctOptionID)
 	return p
 }
 
@@ -1158,21 +1344,27 @@ func (p *SendPollParams) WithProtectContent() *SendPollParams {
 	return p
 }
 
-// WithReplyToMessageID adds reply to message ID parameter
-func (p *SendPollParams) WithReplyToMessageID(replyToMessageID int) *SendPollParams {
-	p.ReplyToMessageID = replyToMessageID
+// WithMessageEffectID adds message effect ID parameter
+func (p *SendPollParams) WithMessageEffectID(messageEffectID string) *SendPollParams {
+	p.MessageEffectID = messageEffectID
 	return p
 }
 
-// WithAllowSendingWithoutReply adds allow sending without reply parameter
-func (p *SendPollParams) WithAllowSendingWithoutReply() *SendPollParams {
-	p.AllowSendingWithoutReply = true
+// WithReplyParameters adds reply parameters parameter
+func (p *SendPollParams) WithReplyParameters(replyParameters *ReplyParameters) *SendPollParams {
+	p.ReplyParameters = replyParameters
 	return p
 }
 
 // WithReplyMarkup adds reply markup parameter
 func (p *SendPollParams) WithReplyMarkup(replyMarkup ReplyMarkup) *SendPollParams {
 	p.ReplyMarkup = replyMarkup
+	return p
+}
+
+// WithBusinessConnectionID adds business connection ID parameter
+func (p *SendDiceParams) WithBusinessConnectionID(businessConnectionID string) *SendDiceParams {
+	p.BusinessConnectionID = businessConnectionID
 	return p
 }
 
@@ -1206,21 +1398,27 @@ func (p *SendDiceParams) WithProtectContent() *SendDiceParams {
 	return p
 }
 
-// WithReplyToMessageID adds reply to message ID parameter
-func (p *SendDiceParams) WithReplyToMessageID(replyToMessageID int) *SendDiceParams {
-	p.ReplyToMessageID = replyToMessageID
+// WithMessageEffectID adds message effect ID parameter
+func (p *SendDiceParams) WithMessageEffectID(messageEffectID string) *SendDiceParams {
+	p.MessageEffectID = messageEffectID
 	return p
 }
 
-// WithAllowSendingWithoutReply adds allow sending without reply parameter
-func (p *SendDiceParams) WithAllowSendingWithoutReply() *SendDiceParams {
-	p.AllowSendingWithoutReply = true
+// WithReplyParameters adds reply parameters parameter
+func (p *SendDiceParams) WithReplyParameters(replyParameters *ReplyParameters) *SendDiceParams {
+	p.ReplyParameters = replyParameters
 	return p
 }
 
 // WithReplyMarkup adds reply markup parameter
 func (p *SendDiceParams) WithReplyMarkup(replyMarkup ReplyMarkup) *SendDiceParams {
 	p.ReplyMarkup = replyMarkup
+	return p
+}
+
+// WithBusinessConnectionID adds business connection ID parameter
+func (p *SendChatActionParams) WithBusinessConnectionID(businessConnectionID string) *SendChatActionParams {
+	p.BusinessConnectionID = businessConnectionID
 	return p
 }
 
@@ -1239,6 +1437,30 @@ func (p *SendChatActionParams) WithMessageThreadID(messageThreadID int) *SendCha
 // WithAction adds action parameter
 func (p *SendChatActionParams) WithAction(action string) *SendChatActionParams {
 	p.Action = action
+	return p
+}
+
+// WithChatID adds chat ID parameter
+func (p *SetMessageReactionParams) WithChatID(chatID ChatID) *SetMessageReactionParams {
+	p.ChatID = chatID
+	return p
+}
+
+// WithMessageID adds message ID parameter
+func (p *SetMessageReactionParams) WithMessageID(messageID int) *SetMessageReactionParams {
+	p.MessageID = messageID
+	return p
+}
+
+// WithReaction adds reaction parameter
+func (p *SetMessageReactionParams) WithReaction(reaction ...ReactionType) *SetMessageReactionParams {
+	p.Reaction = reaction
+	return p
+}
+
+// WithIsBig adds is big parameter
+func (p *SetMessageReactionParams) WithIsBig() *SetMessageReactionParams {
+	p.IsBig = true
 	return p
 }
 
@@ -1320,39 +1542,9 @@ func (p *PromoteChatMemberParams) WithCanManageChat(canManageChat bool) *Promote
 	return p
 }
 
-// WithCanPostMessages adds can post messages parameter
-func (p *PromoteChatMemberParams) WithCanPostMessages(canPostMessages bool) *PromoteChatMemberParams {
-	p.CanPostMessages = ToPtr(canPostMessages)
-	return p
-}
-
-// WithCanEditMessages adds can edit messages parameter
-func (p *PromoteChatMemberParams) WithCanEditMessages(canEditMessages bool) *PromoteChatMemberParams {
-	p.CanEditMessages = ToPtr(canEditMessages)
-	return p
-}
-
 // WithCanDeleteMessages adds can delete messages parameter
 func (p *PromoteChatMemberParams) WithCanDeleteMessages(canDeleteMessages bool) *PromoteChatMemberParams {
 	p.CanDeleteMessages = ToPtr(canDeleteMessages)
-	return p
-}
-
-// WithCanPostStories adds can post stories parameter
-func (p *PromoteChatMemberParams) WithCanPostStories(canPostStories bool) *PromoteChatMemberParams {
-	p.CanPostStories = ToPtr(canPostStories)
-	return p
-}
-
-// WithCanEditStories adds can edit stories parameter
-func (p *PromoteChatMemberParams) WithCanEditStories(canEditStories bool) *PromoteChatMemberParams {
-	p.CanEditStories = ToPtr(canEditStories)
-	return p
-}
-
-// WithCanDeleteStories adds can delete stories parameter
-func (p *PromoteChatMemberParams) WithCanDeleteStories(canDeleteStories bool) *PromoteChatMemberParams {
-	p.CanDeleteStories = ToPtr(canDeleteStories)
 	return p
 }
 
@@ -1383,6 +1575,36 @@ func (p *PromoteChatMemberParams) WithCanChangeInfo(canChangeInfo bool) *Promote
 // WithCanInviteUsers adds can invite users parameter
 func (p *PromoteChatMemberParams) WithCanInviteUsers(canInviteUsers bool) *PromoteChatMemberParams {
 	p.CanInviteUsers = ToPtr(canInviteUsers)
+	return p
+}
+
+// WithCanPostStories adds can post stories parameter
+func (p *PromoteChatMemberParams) WithCanPostStories(canPostStories bool) *PromoteChatMemberParams {
+	p.CanPostStories = ToPtr(canPostStories)
+	return p
+}
+
+// WithCanEditStories adds can edit stories parameter
+func (p *PromoteChatMemberParams) WithCanEditStories(canEditStories bool) *PromoteChatMemberParams {
+	p.CanEditStories = ToPtr(canEditStories)
+	return p
+}
+
+// WithCanDeleteStories adds can delete stories parameter
+func (p *PromoteChatMemberParams) WithCanDeleteStories(canDeleteStories bool) *PromoteChatMemberParams {
+	p.CanDeleteStories = ToPtr(canDeleteStories)
+	return p
+}
+
+// WithCanPostMessages adds can post messages parameter
+func (p *PromoteChatMemberParams) WithCanPostMessages(canPostMessages bool) *PromoteChatMemberParams {
+	p.CanPostMessages = ToPtr(canPostMessages)
+	return p
+}
+
+// WithCanEditMessages adds can edit messages parameter
+func (p *PromoteChatMemberParams) WithCanEditMessages(canEditMessages bool) *PromoteChatMemberParams {
+	p.CanEditMessages = ToPtr(canEditMessages)
 	return p
 }
 
@@ -1819,6 +2041,19 @@ func (p *AnswerCallbackQueryParams) WithCacheTime(cacheTime int) *AnswerCallback
 	return p
 }
 
+// WithChatID adds chat ID parameter
+func (p *GetUserChatBoostsParams) WithChatID(chatID ChatID) *GetUserChatBoostsParams {
+	p.ChatID = chatID
+	return p
+}
+
+// WithBusinessConnectionID adds business connection ID parameter
+func (p *GetBusinessConnectionParams) WithBusinessConnectionID(businessConnectionID string,
+) *GetBusinessConnectionParams {
+	p.BusinessConnectionID = businessConnectionID
+	return p
+}
+
 // WithCommands adds commands parameter
 func (p *SetMyCommandsParams) WithCommands(commands ...BotCommand) *SetMyCommandsParams {
 	p.Commands = commands
@@ -1976,9 +2211,9 @@ func (p *EditMessageTextParams) WithEntities(entities ...MessageEntity) *EditMes
 	return p
 }
 
-// WithDisableWebPagePreview adds disable web page preview parameter
-func (p *EditMessageTextParams) WithDisableWebPagePreview() *EditMessageTextParams {
-	p.DisableWebPagePreview = true
+// WithLinkPreviewOptions adds link preview options parameter
+func (p *EditMessageTextParams) WithLinkPreviewOptions(linkPreviewOptions *LinkPreviewOptions) *EditMessageTextParams {
+	p.LinkPreviewOptions = linkPreviewOptions
 	return p
 }
 
@@ -2021,6 +2256,12 @@ func (p *EditMessageCaptionParams) WithParseMode(parseMode string) *EditMessageC
 // WithCaptionEntities adds caption entities parameter
 func (p *EditMessageCaptionParams) WithCaptionEntities(captionEntities ...MessageEntity) *EditMessageCaptionParams {
 	p.CaptionEntities = captionEntities
+	return p
+}
+
+// WithShowCaptionAboveMedia adds show caption above media parameter
+func (p *EditMessageCaptionParams) WithShowCaptionAboveMedia() *EditMessageCaptionParams {
+	p.ShowCaptionAboveMedia = true
 	return p
 }
 
@@ -2075,6 +2316,12 @@ func (p *EditMessageLiveLocationParams) WithMessageID(messageID int) *EditMessag
 // WithInlineMessageID adds inline message ID parameter
 func (p *EditMessageLiveLocationParams) WithInlineMessageID(inlineMessageID string) *EditMessageLiveLocationParams {
 	p.InlineMessageID = inlineMessageID
+	return p
+}
+
+// WithLivePeriod adds live period parameter
+func (p *EditMessageLiveLocationParams) WithLivePeriod(livePeriod int) *EditMessageLiveLocationParams {
+	p.LivePeriod = livePeriod
 	return p
 }
 
@@ -2179,6 +2426,24 @@ func (p *DeleteMessageParams) WithMessageID(messageID int) *DeleteMessageParams 
 }
 
 // WithChatID adds chat ID parameter
+func (p *DeleteMessagesParams) WithChatID(chatID ChatID) *DeleteMessagesParams {
+	p.ChatID = chatID
+	return p
+}
+
+// WithMessageIDs adds message ids parameter
+func (p *DeleteMessagesParams) WithMessageIDs(messageIDs ...int) *DeleteMessagesParams {
+	p.MessageIDs = messageIDs
+	return p
+}
+
+// WithBusinessConnectionID adds business connection ID parameter
+func (p *SendStickerParams) WithBusinessConnectionID(businessConnectionID string) *SendStickerParams {
+	p.BusinessConnectionID = businessConnectionID
+	return p
+}
+
+// WithChatID adds chat ID parameter
 func (p *SendStickerParams) WithChatID(chatID ChatID) *SendStickerParams {
 	p.ChatID = chatID
 	return p
@@ -2214,15 +2479,15 @@ func (p *SendStickerParams) WithProtectContent() *SendStickerParams {
 	return p
 }
 
-// WithReplyToMessageID adds reply to message ID parameter
-func (p *SendStickerParams) WithReplyToMessageID(replyToMessageID int) *SendStickerParams {
-	p.ReplyToMessageID = replyToMessageID
+// WithMessageEffectID adds message effect ID parameter
+func (p *SendStickerParams) WithMessageEffectID(messageEffectID string) *SendStickerParams {
+	p.MessageEffectID = messageEffectID
 	return p
 }
 
-// WithAllowSendingWithoutReply adds allow sending without reply parameter
-func (p *SendStickerParams) WithAllowSendingWithoutReply() *SendStickerParams {
-	p.AllowSendingWithoutReply = true
+// WithReplyParameters adds reply parameters parameter
+func (p *SendStickerParams) WithReplyParameters(replyParameters *ReplyParameters) *SendStickerParams {
+	p.ReplyParameters = replyParameters
 	return p
 }
 
@@ -2274,12 +2539,6 @@ func (p *CreateNewStickerSetParams) WithStickers(stickers ...InputSticker) *Crea
 	return p
 }
 
-// WithStickerFormat adds sticker format parameter
-func (p *CreateNewStickerSetParams) WithStickerFormat(stickerFormat string) *CreateNewStickerSetParams {
-	p.StickerFormat = stickerFormat
-	return p
-}
-
 // WithStickerType adds sticker type parameter
 func (p *CreateNewStickerSetParams) WithStickerType(stickerType string) *CreateNewStickerSetParams {
 	p.StickerType = stickerType
@@ -2318,6 +2577,24 @@ func (p *SetStickerPositionInSetParams) WithPosition(position int) *SetStickerPo
 
 // WithSticker adds sticker parameter
 func (p *DeleteStickerFromSetParams) WithSticker(sticker string) *DeleteStickerFromSetParams {
+	p.Sticker = sticker
+	return p
+}
+
+// WithName adds name parameter
+func (p *ReplaceStickerInSetParams) WithName(name string) *ReplaceStickerInSetParams {
+	p.Name = name
+	return p
+}
+
+// WithOldSticker adds old sticker parameter
+func (p *ReplaceStickerInSetParams) WithOldSticker(oldSticker string) *ReplaceStickerInSetParams {
+	p.OldSticker = oldSticker
+	return p
+}
+
+// WithSticker adds sticker parameter
+func (p *ReplaceStickerInSetParams) WithSticker(sticker InputSticker) *ReplaceStickerInSetParams {
 	p.Sticker = sticker
 	return p
 }
@@ -2379,6 +2656,12 @@ func (p *SetStickerSetThumbnailParams) WithName(name string) *SetStickerSetThumb
 // WithThumbnail adds thumbnail parameter
 func (p *SetStickerSetThumbnailParams) WithThumbnail(thumbnail *InputFile) *SetStickerSetThumbnailParams {
 	p.Thumbnail = thumbnail
+	return p
+}
+
+// WithFormat adds format parameter
+func (p *SetStickerSetThumbnailParams) WithFormat(format string) *SetStickerSetThumbnailParams {
+	p.Format = format
 	return p
 }
 
@@ -2599,15 +2882,15 @@ func (p *SendInvoiceParams) WithProtectContent() *SendInvoiceParams {
 	return p
 }
 
-// WithReplyToMessageID adds reply to message ID parameter
-func (p *SendInvoiceParams) WithReplyToMessageID(replyToMessageID int) *SendInvoiceParams {
-	p.ReplyToMessageID = replyToMessageID
+// WithMessageEffectID adds message effect ID parameter
+func (p *SendInvoiceParams) WithMessageEffectID(messageEffectID string) *SendInvoiceParams {
+	p.MessageEffectID = messageEffectID
 	return p
 }
 
-// WithAllowSendingWithoutReply adds allow sending without reply parameter
-func (p *SendInvoiceParams) WithAllowSendingWithoutReply() *SendInvoiceParams {
-	p.AllowSendingWithoutReply = true
+// WithReplyParameters adds reply parameters parameter
+func (p *SendInvoiceParams) WithReplyParameters(replyParameters *ReplyParameters) *SendInvoiceParams {
+	p.ReplyParameters = replyParameters
 	return p
 }
 
@@ -2779,9 +3062,21 @@ func (p *AnswerPreCheckoutQueryParams) WithErrorMessage(errorMessage string) *An
 	return p
 }
 
+// WithTelegramPaymentChargeID adds telegram payment charge ID parameter
+func (p *RefundStarPaymentParams) WithTelegramPaymentChargeID(telegramPaymentChargeID string) *RefundStarPaymentParams {
+	p.TelegramPaymentChargeID = telegramPaymentChargeID
+	return p
+}
+
 // WithErrors adds errors parameter
 func (p *SetPassportDataErrorsParams) WithErrors(errors ...PassportElementError) *SetPassportDataErrorsParams {
 	p.Errors = errors
+	return p
+}
+
+// WithBusinessConnectionID adds business connection ID parameter
+func (p *SendGameParams) WithBusinessConnectionID(businessConnectionID string) *SendGameParams {
+	p.BusinessConnectionID = businessConnectionID
 	return p
 }
 
@@ -2809,15 +3104,15 @@ func (p *SendGameParams) WithProtectContent() *SendGameParams {
 	return p
 }
 
-// WithReplyToMessageID adds reply to message ID parameter
-func (p *SendGameParams) WithReplyToMessageID(replyToMessageID int) *SendGameParams {
-	p.ReplyToMessageID = replyToMessageID
+// WithMessageEffectID adds message effect ID parameter
+func (p *SendGameParams) WithMessageEffectID(messageEffectID string) *SendGameParams {
+	p.MessageEffectID = messageEffectID
 	return p
 }
 
-// WithAllowSendingWithoutReply adds allow sending without reply parameter
-func (p *SendGameParams) WithAllowSendingWithoutReply() *SendGameParams {
-	p.AllowSendingWithoutReply = true
+// WithReplyParameters adds reply parameters parameter
+func (p *SendGameParams) WithReplyParameters(replyParameters *ReplyParameters) *SendGameParams {
+	p.ReplyParameters = replyParameters
 	return p
 }
 

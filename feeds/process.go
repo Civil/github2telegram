@@ -212,7 +212,7 @@ func (f *Feed) processSingleItem(cfg *configs.FeedsConfig, url string, item *gof
 			}
 			content = strings.Replace(content, "```", "", 1)
 
-			notification += "\nRelease notes:\n```\n" + content + "\n```"
+			notification += "\nRelease notes:\n```\n" + content + "\n```\n"
 			if contentTruncated {
 				notification += "[More](" + item.Link + ")"
 			}
@@ -375,13 +375,13 @@ func (f *Feed) ProcessFeed() {
 				zap.Error(err),
 			)
 			if strings.Contains(err.Error(), "404 Not Found") {
-				err = f.db.RemoveFeed(f.Name, f.Repo, f.Filter, f.MessagePattern)
-				if err != nil {
-					f.logger.Error("error removing feed", zap.Error(err))
-					continue
-				}
-				f.logger.Info("feed removed")
-				return
+//				err = f.db.RemoveFeed(f.Name, f.Repo, f.Filter, f.MessagePattern)
+//				if err != nil {
+//					f.logger.Error("error removing feed", zap.Error(err))
+//					continue
+//				}
+				f.logger.Info("feed should be removed")
+//				return
 			}
 			continue
 		}

@@ -1,5 +1,65 @@
 package telego
 
+// WithMessageID adds message ID parameter
+func (r *ReplyParameters) WithMessageID(messageID int) *ReplyParameters {
+	r.MessageID = messageID
+	return r
+}
+
+// WithChatID adds chat ID parameter
+func (r *ReplyParameters) WithChatID(chatID ChatID) *ReplyParameters {
+	r.ChatID = chatID
+	return r
+}
+
+// WithAllowSendingWithoutReply adds allow sending without reply parameter
+func (r *ReplyParameters) WithAllowSendingWithoutReply() *ReplyParameters {
+	r.AllowSendingWithoutReply = true
+	return r
+}
+
+// WithQuote adds quote parameter
+func (r *ReplyParameters) WithQuote(quote string) *ReplyParameters {
+	r.Quote = quote
+	return r
+}
+
+// WithQuoteParseMode adds quote parse mode parameter
+func (r *ReplyParameters) WithQuoteParseMode(quoteParseMode string) *ReplyParameters {
+	r.QuoteParseMode = quoteParseMode
+	return r
+}
+
+// WithQuoteEntities adds quote entities parameter
+func (r *ReplyParameters) WithQuoteEntities(quoteEntities ...MessageEntity) *ReplyParameters {
+	r.QuoteEntities = quoteEntities
+	return r
+}
+
+// WithQuotePosition adds quote position parameter
+func (r *ReplyParameters) WithQuotePosition(quotePosition int) *ReplyParameters {
+	r.QuotePosition = quotePosition
+	return r
+}
+
+// WithText adds text parameter
+func (i *InputPollOption) WithText(text string) *InputPollOption {
+	i.Text = text
+	return i
+}
+
+// WithTextParseMode adds text parse mode parameter
+func (i *InputPollOption) WithTextParseMode(textParseMode string) *InputPollOption {
+	i.TextParseMode = textParseMode
+	return i
+}
+
+// WithTextEntities adds text entities parameter
+func (i *InputPollOption) WithTextEntities(textEntities ...MessageEntity) *InputPollOption {
+	i.TextEntities = textEntities
+	return i
+}
+
 // WithKeyboard adds keyboard parameter
 func (r *ReplyKeyboardMarkup) WithKeyboard(keyboard ...[]KeyboardButton) *ReplyKeyboardMarkup {
 	r.Keyboard = keyboard
@@ -42,9 +102,9 @@ func (k KeyboardButton) WithText(text string) KeyboardButton {
 	return k
 }
 
-// WithRequestUser adds request user parameter
-func (k KeyboardButton) WithRequestUser(requestUser *KeyboardButtonRequestUser) KeyboardButton {
-	k.RequestUser = requestUser
+// WithRequestUsers adds request users parameter
+func (k KeyboardButton) WithRequestUsers(requestUsers *KeyboardButtonRequestUsers) KeyboardButton {
+	k.RequestUsers = requestUsers
 	return k
 }
 
@@ -79,14 +139,38 @@ func (k KeyboardButton) WithWebApp(webApp *WebAppInfo) KeyboardButton {
 }
 
 // WithUserIsBot adds user is bot parameter
-func (k *KeyboardButtonRequestUser) WithUserIsBot(userIsBot bool) *KeyboardButtonRequestUser {
+func (k *KeyboardButtonRequestUsers) WithUserIsBot(userIsBot bool) *KeyboardButtonRequestUsers {
 	k.UserIsBot = ToPtr(userIsBot)
 	return k
 }
 
 // WithUserIsPremium adds user is premium parameter
-func (k *KeyboardButtonRequestUser) WithUserIsPremium(userIsPremium bool) *KeyboardButtonRequestUser {
+func (k *KeyboardButtonRequestUsers) WithUserIsPremium(userIsPremium bool) *KeyboardButtonRequestUsers {
 	k.UserIsPremium = ToPtr(userIsPremium)
+	return k
+}
+
+// WithMaxQuantity adds max quantity parameter
+func (k *KeyboardButtonRequestUsers) WithMaxQuantity(maxQuantity int) *KeyboardButtonRequestUsers {
+	k.MaxQuantity = maxQuantity
+	return k
+}
+
+// WithRequestName adds request name parameter
+func (k *KeyboardButtonRequestUsers) WithRequestName(requestName bool) *KeyboardButtonRequestUsers {
+	k.RequestName = ToPtr(requestName)
+	return k
+}
+
+// WithRequestUsername adds request username parameter
+func (k *KeyboardButtonRequestUsers) WithRequestUsername(requestUsername bool) *KeyboardButtonRequestUsers {
+	k.RequestUsername = ToPtr(requestUsername)
+	return k
+}
+
+// WithRequestPhoto adds request photo parameter
+func (k *KeyboardButtonRequestUsers) WithRequestPhoto(requestPhoto bool) *KeyboardButtonRequestUsers {
+	k.RequestPhoto = ToPtr(requestPhoto)
 	return k
 }
 
@@ -131,6 +215,24 @@ func (k *KeyboardButtonRequestChat) WithBotAdministratorRights(botAdministratorR
 // WithBotIsMember adds bot is member parameter
 func (k *KeyboardButtonRequestChat) WithBotIsMember(botIsMember bool) *KeyboardButtonRequestChat {
 	k.BotIsMember = ToPtr(botIsMember)
+	return k
+}
+
+// WithRequestTitle adds request title parameter
+func (k *KeyboardButtonRequestChat) WithRequestTitle(requestTitle bool) *KeyboardButtonRequestChat {
+	k.RequestTitle = ToPtr(requestTitle)
+	return k
+}
+
+// WithRequestUsername adds request username parameter
+func (k *KeyboardButtonRequestChat) WithRequestUsername(requestUsername bool) *KeyboardButtonRequestChat {
+	k.RequestUsername = ToPtr(requestUsername)
+	return k
+}
+
+// WithRequestPhoto adds request photo parameter
+func (k *KeyboardButtonRequestChat) WithRequestPhoto(requestPhoto bool) *KeyboardButtonRequestChat {
+	k.RequestPhoto = ToPtr(requestPhoto)
 	return k
 }
 
@@ -189,14 +291,16 @@ func (i InlineKeyboardButton) WithSwitchInlineQuery(switchInlineQuery string) In
 }
 
 // WithSwitchInlineQueryCurrentChat adds switch inline query current chat parameter
-func (i InlineKeyboardButton) WithSwitchInlineQueryCurrentChat(switchInlineQueryCurrentChat string,
+func (i InlineKeyboardButton) WithSwitchInlineQueryCurrentChat(
+	switchInlineQueryCurrentChat string,
 ) InlineKeyboardButton {
 	i.SwitchInlineQueryCurrentChat = ToPtr(switchInlineQueryCurrentChat)
 	return i
 }
 
 // WithSwitchInlineQueryChosenChat adds switch inline query chosen chat parameter
-func (i InlineKeyboardButton) WithSwitchInlineQueryChosenChat(switchInlineQueryChosenChat *SwitchInlineQueryChosenChat,
+func (i InlineKeyboardButton) WithSwitchInlineQueryChosenChat(
+	switchInlineQueryChosenChat *SwitchInlineQueryChosenChat,
 ) InlineKeyboardButton {
 	i.SwitchInlineQueryChosenChat = switchInlineQueryChosenChat
 	return i
@@ -268,6 +372,12 @@ func (i *InputMediaPhoto) WithCaptionEntities(captionEntities ...MessageEntity) 
 	return i
 }
 
+// WithShowCaptionAboveMedia adds show caption above media parameter
+func (i *InputMediaPhoto) WithShowCaptionAboveMedia() *InputMediaPhoto {
+	i.ShowCaptionAboveMedia = true
+	return i
+}
+
 // WithHasSpoiler adds has spoiler parameter
 func (i *InputMediaPhoto) WithHasSpoiler() *InputMediaPhoto {
 	i.HasSpoiler = true
@@ -301,6 +411,12 @@ func (i *InputMediaVideo) WithParseMode(parseMode string) *InputMediaVideo {
 // WithCaptionEntities adds caption entities parameter
 func (i *InputMediaVideo) WithCaptionEntities(captionEntities ...MessageEntity) *InputMediaVideo {
 	i.CaptionEntities = captionEntities
+	return i
+}
+
+// WithShowCaptionAboveMedia adds show caption above media parameter
+func (i *InputMediaVideo) WithShowCaptionAboveMedia() *InputMediaVideo {
+	i.ShowCaptionAboveMedia = true
 	return i
 }
 
@@ -361,6 +477,12 @@ func (i *InputMediaAnimation) WithParseMode(parseMode string) *InputMediaAnimati
 // WithCaptionEntities adds caption entities parameter
 func (i *InputMediaAnimation) WithCaptionEntities(captionEntities ...MessageEntity) *InputMediaAnimation {
 	i.CaptionEntities = captionEntities
+	return i
+}
+
+// WithShowCaptionAboveMedia adds show caption above media parameter
+func (i *InputMediaAnimation) WithShowCaptionAboveMedia() *InputMediaAnimation {
+	i.ShowCaptionAboveMedia = true
 	return i
 }
 
@@ -475,6 +597,12 @@ func (i *InputMediaDocument) WithDisableContentTypeDetection() *InputMediaDocume
 // WithSticker adds sticker parameter
 func (i *InputSticker) WithSticker(sticker InputFile) *InputSticker {
 	i.Sticker = sticker
+	return i
+}
+
+// WithFormat adds format parameter
+func (i *InputSticker) WithFormat(format string) *InputSticker {
+	i.Format = format
 	return i
 }
 
@@ -617,6 +745,12 @@ func (i *InlineQueryResultPhoto) WithCaptionEntities(captionEntities ...MessageE
 	return i
 }
 
+// WithShowCaptionAboveMedia adds show caption above media parameter
+func (i *InlineQueryResultPhoto) WithShowCaptionAboveMedia() *InlineQueryResultPhoto {
+	i.ShowCaptionAboveMedia = true
+	return i
+}
+
 // WithReplyMarkup adds reply markup parameter
 func (i *InlineQueryResultPhoto) WithReplyMarkup(replyMarkup *InlineKeyboardMarkup) *InlineQueryResultPhoto {
 	i.ReplyMarkup = replyMarkup
@@ -693,6 +827,12 @@ func (i *InlineQueryResultGif) WithParseMode(parseMode string) *InlineQueryResul
 // WithCaptionEntities adds caption entities parameter
 func (i *InlineQueryResultGif) WithCaptionEntities(captionEntities ...MessageEntity) *InlineQueryResultGif {
 	i.CaptionEntities = captionEntities
+	return i
+}
+
+// WithShowCaptionAboveMedia adds show caption above media parameter
+func (i *InlineQueryResultGif) WithShowCaptionAboveMedia() *InlineQueryResultGif {
+	i.ShowCaptionAboveMedia = true
 	return i
 }
 
@@ -774,6 +914,12 @@ func (i *InlineQueryResultMpeg4Gif) WithCaptionEntities(captionEntities ...Messa
 	return i
 }
 
+// WithShowCaptionAboveMedia adds show caption above media parameter
+func (i *InlineQueryResultMpeg4Gif) WithShowCaptionAboveMedia() *InlineQueryResultMpeg4Gif {
+	i.ShowCaptionAboveMedia = true
+	return i
+}
+
 // WithReplyMarkup adds reply markup parameter
 func (i *InlineQueryResultMpeg4Gif) WithReplyMarkup(replyMarkup *InlineKeyboardMarkup) *InlineQueryResultMpeg4Gif {
 	i.ReplyMarkup = replyMarkup
@@ -832,6 +978,12 @@ func (i *InlineQueryResultVideo) WithParseMode(parseMode string) *InlineQueryRes
 // WithCaptionEntities adds caption entities parameter
 func (i *InlineQueryResultVideo) WithCaptionEntities(captionEntities ...MessageEntity) *InlineQueryResultVideo {
 	i.CaptionEntities = captionEntities
+	return i
+}
+
+// WithShowCaptionAboveMedia adds show caption above media parameter
+func (i *InlineQueryResultVideo) WithShowCaptionAboveMedia() *InlineQueryResultVideo {
+	i.ShowCaptionAboveMedia = true
 	return i
 }
 
@@ -1323,6 +1475,12 @@ func (i *InlineQueryResultCachedPhoto) WithCaptionEntities(captionEntities ...Me
 	return i
 }
 
+// WithShowCaptionAboveMedia adds show caption above media parameter
+func (i *InlineQueryResultCachedPhoto) WithShowCaptionAboveMedia() *InlineQueryResultCachedPhoto {
+	i.ShowCaptionAboveMedia = true
+	return i
+}
+
 // WithReplyMarkup adds reply markup parameter
 func (i *InlineQueryResultCachedPhoto) WithReplyMarkup(replyMarkup *InlineKeyboardMarkup,
 ) *InlineQueryResultCachedPhoto {
@@ -1373,6 +1531,12 @@ func (i *InlineQueryResultCachedGif) WithCaptionEntities(captionEntities ...Mess
 	return i
 }
 
+// WithShowCaptionAboveMedia adds show caption above media parameter
+func (i *InlineQueryResultCachedGif) WithShowCaptionAboveMedia() *InlineQueryResultCachedGif {
+	i.ShowCaptionAboveMedia = true
+	return i
+}
+
 // WithReplyMarkup adds reply markup parameter
 func (i *InlineQueryResultCachedGif) WithReplyMarkup(replyMarkup *InlineKeyboardMarkup) *InlineQueryResultCachedGif {
 	i.ReplyMarkup = replyMarkup
@@ -1420,6 +1584,12 @@ func (i *InlineQueryResultCachedMpeg4Gif) WithParseMode(parseMode string) *Inlin
 func (i *InlineQueryResultCachedMpeg4Gif) WithCaptionEntities(captionEntities ...MessageEntity,
 ) *InlineQueryResultCachedMpeg4Gif {
 	i.CaptionEntities = captionEntities
+	return i
+}
+
+// WithShowCaptionAboveMedia adds show caption above media parameter
+func (i *InlineQueryResultCachedMpeg4Gif) WithShowCaptionAboveMedia() *InlineQueryResultCachedMpeg4Gif {
+	i.ShowCaptionAboveMedia = true
 	return i
 }
 
@@ -1563,6 +1733,12 @@ func (i *InlineQueryResultCachedVideo) WithCaptionEntities(captionEntities ...Me
 	return i
 }
 
+// WithShowCaptionAboveMedia adds show caption above media parameter
+func (i *InlineQueryResultCachedVideo) WithShowCaptionAboveMedia() *InlineQueryResultCachedVideo {
+	i.ShowCaptionAboveMedia = true
+	return i
+}
+
 // WithReplyMarkup adds reply markup parameter
 func (i *InlineQueryResultCachedVideo) WithReplyMarkup(replyMarkup *InlineKeyboardMarkup,
 ) *InlineQueryResultCachedVideo {
@@ -1691,9 +1867,11 @@ func (i *InputTextMessageContent) WithEntities(entities ...MessageEntity) *Input
 	return i
 }
 
-// WithDisableWebPagePreview adds disable web page preview parameter
-func (i *InputTextMessageContent) WithDisableWebPagePreview() *InputTextMessageContent {
-	i.DisableWebPagePreview = true
+// WithLinkPreviewOptions adds link preview options parameter
+func (i *InputTextMessageContent) WithLinkPreviewOptions(
+	linkPreviewOptions *LinkPreviewOptions,
+) *InputTextMessageContent {
+	i.LinkPreviewOptions = linkPreviewOptions
 	return i
 }
 

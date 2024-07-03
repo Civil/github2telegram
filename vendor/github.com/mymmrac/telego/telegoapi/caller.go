@@ -9,8 +9,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/goccy/go-json"
 	"github.com/valyala/fasthttp"
+
+	"github.com/mymmrac/telego/internal/json"
 )
 
 // FastHTTPCaller fasthttp implementation of Caller

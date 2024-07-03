@@ -6,16 +6,18 @@ import (
 	th "github.com/mymmrac/telego/telegohandler"
 )
 
-// ParseCommand returns command and its arguments if any
-func ParseCommand(text string) (string, []string) {
+// ParseCommand returns command, bot username and its arguments if any
+func ParseCommand(text string) (cmd string, username string, args []string) {
+	var payload string
+	cmd, username, payload = ParseCommandPayload(text)
+	return cmd, username, strings.Fields(payload)
+}
+
+// ParseCommandPayload returns command, bot username and its payload if any
+func ParseCommandPayload(text string) (cmd string, username string, payload string) {
 	matches := th.CommandRegexp.FindStringSubmatch(text)
 	if len(matches) != th.CommandMatchGroupsLen {
-		return "", nil
+		return "", "", ""
 	}
-
-	if matches[2] == "" {
-		return matches[1], []string{}
-	}
-
-	return matches[1], strings.Split(matches[2], " ")
+	return matches[th.CommandMatchCmdGroup], matches[th.CommandMatchBotUsernameGroup], matches[th.CommandMatchArgsGroup]
 }

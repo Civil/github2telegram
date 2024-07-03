@@ -1,48 +1,92 @@
-# github.com/PuerkitoBio/goquery v1.8.0
-## explicit; go 1.13
+# github.com/PuerkitoBio/goquery v1.9.2
+## explicit; go 1.18
 github.com/PuerkitoBio/goquery
-# github.com/andybalholm/brotli v1.0.5
-## explicit; go 1.12
+# github.com/andybalholm/brotli v1.1.0
+## explicit; go 1.13
 github.com/andybalholm/brotli
-# github.com/andybalholm/cascadia v1.3.1
+github.com/andybalholm/brotli/matchfinder
+# github.com/andybalholm/cascadia v1.3.2
 ## explicit; go 1.16
 github.com/andybalholm/cascadia
+# github.com/bytedance/sonic v1.11.9
+## explicit; go 1.16
+github.com/bytedance/sonic
+github.com/bytedance/sonic/ast
+github.com/bytedance/sonic/decoder
+github.com/bytedance/sonic/encoder
+github.com/bytedance/sonic/internal/caching
+github.com/bytedance/sonic/internal/cpu
+github.com/bytedance/sonic/internal/decoder
+github.com/bytedance/sonic/internal/encoder
+github.com/bytedance/sonic/internal/jit
+github.com/bytedance/sonic/internal/native
+github.com/bytedance/sonic/internal/native/avx2
+github.com/bytedance/sonic/internal/native/neon
+github.com/bytedance/sonic/internal/native/sse
+github.com/bytedance/sonic/internal/native/types
+github.com/bytedance/sonic/internal/resolver
+github.com/bytedance/sonic/internal/rt
+github.com/bytedance/sonic/option
+github.com/bytedance/sonic/unquote
+github.com/bytedance/sonic/utf8
+# github.com/bytedance/sonic/loader v0.1.1
+## explicit; go 1.16
+github.com/bytedance/sonic/loader
+github.com/bytedance/sonic/loader/internal/abi
+github.com/bytedance/sonic/loader/internal/rt
+# github.com/cloudwego/base64x v0.1.4
+## explicit; go 1.16
+github.com/cloudwego/base64x
+# github.com/cloudwego/iasm v0.2.0
+## explicit; go 1.16
+github.com/cloudwego/iasm/expr
+github.com/cloudwego/iasm/x86_64
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
-# github.com/fasthttp/router v1.4.20
-## explicit; go 1.17
+# github.com/fasthttp/router v1.5.1
+## explicit; go 1.19
 github.com/fasthttp/router
 github.com/fasthttp/router/radix
-# github.com/goccy/go-json v0.10.2
-## explicit; go 1.12
-github.com/goccy/go-json
-github.com/goccy/go-json/internal/decoder
-github.com/goccy/go-json/internal/encoder
-github.com/goccy/go-json/internal/encoder/vm
-github.com/goccy/go-json/internal/encoder/vm_color
-github.com/goccy/go-json/internal/encoder/vm_color_indent
-github.com/goccy/go-json/internal/encoder/vm_indent
-github.com/goccy/go-json/internal/errors
-github.com/goccy/go-json/internal/runtime
+# github.com/grbit/go-json v0.11.0
+## explicit; go 1.19
+github.com/grbit/go-json
+github.com/grbit/go-json/internal/decoder
+github.com/grbit/go-json/internal/encoder
+github.com/grbit/go-json/internal/encoder/vm
+github.com/grbit/go-json/internal/encoder/vm_color
+github.com/grbit/go-json/internal/encoder/vm_color_indent
+github.com/grbit/go-json/internal/encoder/vm_indent
+github.com/grbit/go-json/internal/errors
+github.com/grbit/go-json/internal/runtime
 # github.com/json-iterator/go v1.1.12
 ## explicit; go 1.12
 github.com/json-iterator/go
-# github.com/klauspost/compress v1.16.5
-## explicit; go 1.18
+# github.com/klauspost/compress v1.17.9
+## explicit; go 1.20
+github.com/klauspost/compress
 github.com/klauspost/compress/flate
+github.com/klauspost/compress/fse
 github.com/klauspost/compress/gzip
+github.com/klauspost/compress/huff0
+github.com/klauspost/compress/internal/cpuinfo
+github.com/klauspost/compress/internal/snapref
 github.com/klauspost/compress/zlib
+github.com/klauspost/compress/zstd
+github.com/klauspost/compress/zstd/internal/xxhash
+# github.com/klauspost/cpuid/v2 v2.2.8
+## explicit; go 1.15
+github.com/klauspost/cpuid/v2
 # github.com/lomik/zapwriter v0.0.0-20210624082824-c1161d1eb463
 ## explicit; go 1.16
 github.com/lomik/zapwriter
 # github.com/lunny/html2md v0.0.0-20181018071239-7d234de44546
 ## explicit
 github.com/lunny/html2md
-# github.com/mattn/go-sqlite3 v1.14.17
-## explicit; go 1.16
+# github.com/mattn/go-sqlite3 v1.14.22
+## explicit; go 1.19
 github.com/mattn/go-sqlite3
-# github.com/mmcdole/gofeed v1.2.1
+# github.com/mmcdole/gofeed v1.3.0
 ## explicit; go 1.19
 github.com/mmcdole/gofeed
 github.com/mmcdole/gofeed/atom
@@ -50,7 +94,7 @@ github.com/mmcdole/gofeed/extensions
 github.com/mmcdole/gofeed/internal/shared
 github.com/mmcdole/gofeed/json
 github.com/mmcdole/gofeed/rss
-# github.com/mmcdole/goxpp v1.1.0
+# github.com/mmcdole/goxpp v1.1.1
 ## explicit; go 1.19
 github.com/mmcdole/goxpp
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
@@ -59,9 +103,10 @@ github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.2
 ## explicit; go 1.12
 github.com/modern-go/reflect2
-# github.com/mymmrac/telego v0.26.3
-## explicit; go 1.20
+# github.com/mymmrac/telego v0.30.2
+## explicit; go 1.22.3
 github.com/mymmrac/telego
+github.com/mymmrac/telego/internal/json
 github.com/mymmrac/telego/telegoapi
 github.com/mymmrac/telego/telegohandler
 github.com/mymmrac/telego/telegoutil
@@ -73,28 +118,51 @@ github.com/pkg/errors
 github.com/pmezard/go-difflib/difflib
 # github.com/rogpeppe/go-internal v1.11.0
 ## explicit; go 1.19
-# github.com/savsgio/gotils v0.0.0-20230208104028-c358bd845dee
+# github.com/savsgio/gotils v0.0.0-20240303185622-093b76447511
 ## explicit; go 1.20
 github.com/savsgio/gotils/bytes
 github.com/savsgio/gotils/strconv
 github.com/savsgio/gotils/strings
-# github.com/stretchr/testify v1.8.4
-## explicit; go 1.20
+# github.com/stretchr/testify v1.9.0
+## explicit; go 1.17
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
 github.com/stretchr/testify/suite
+# github.com/twitchyliquid64/golang-asm v0.15.1
+## explicit; go 1.13
+github.com/twitchyliquid64/golang-asm/asm/arch
+github.com/twitchyliquid64/golang-asm/bio
+github.com/twitchyliquid64/golang-asm/dwarf
+github.com/twitchyliquid64/golang-asm/goobj
+github.com/twitchyliquid64/golang-asm/obj
+github.com/twitchyliquid64/golang-asm/obj/arm
+github.com/twitchyliquid64/golang-asm/obj/arm64
+github.com/twitchyliquid64/golang-asm/obj/mips
+github.com/twitchyliquid64/golang-asm/obj/ppc64
+github.com/twitchyliquid64/golang-asm/obj/riscv
+github.com/twitchyliquid64/golang-asm/obj/s390x
+github.com/twitchyliquid64/golang-asm/obj/wasm
+github.com/twitchyliquid64/golang-asm/obj/x86
+github.com/twitchyliquid64/golang-asm/objabi
+github.com/twitchyliquid64/golang-asm/src
+github.com/twitchyliquid64/golang-asm/sys
+github.com/twitchyliquid64/golang-asm/unsafeheader
 # github.com/valyala/bytebufferpool v1.0.0
 ## explicit
 github.com/valyala/bytebufferpool
-# github.com/valyala/fasthttp v1.50.0
+# github.com/valyala/fasthttp v1.55.0
 ## explicit; go 1.20
 github.com/valyala/fasthttp
 github.com/valyala/fasthttp/fasthttputil
 github.com/valyala/fasthttp/stackless
-# go.uber.org/multierr v1.10.0
+# github.com/valyala/fastjson v1.6.4
+## explicit; go 1.12
+github.com/valyala/fastjson
+github.com/valyala/fastjson/fastfloat
+# go.uber.org/multierr v1.11.0
 ## explicit; go 1.19
 go.uber.org/multierr
-# go.uber.org/zap v1.26.0
+# go.uber.org/zap v1.27.0
 ## explicit; go 1.19
 go.uber.org/zap
 go.uber.org/zap/buffer
@@ -105,13 +173,19 @@ go.uber.org/zap/internal/exit
 go.uber.org/zap/internal/pool
 go.uber.org/zap/internal/stacktrace
 go.uber.org/zap/zapcore
-# golang.org/x/net v0.8.0
-## explicit; go 1.17
+# golang.org/x/arch v0.8.0
+## explicit; go 1.18
+golang.org/x/arch/x86/x86asm
+# golang.org/x/net v0.26.0
+## explicit; go 1.18
 golang.org/x/net/html
 golang.org/x/net/html/atom
 golang.org/x/net/html/charset
-# golang.org/x/text v0.8.0
-## explicit; go 1.17
+# golang.org/x/sys v0.21.0
+## explicit; go 1.18
+golang.org/x/sys/unix
+# golang.org/x/text v0.16.0
+## explicit; go 1.18
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
 golang.org/x/text/encoding/htmlindex

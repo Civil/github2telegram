@@ -25,10 +25,10 @@ type GetUpdatesParams struct {
 	Timeout int `json:"timeout,omitempty"`
 
 	// AllowedUpdates - Optional. A JSON-serialized list of the update types you want your bot to receive. For
-	// example, specify [“message”, “edited_channel_post”, “callback_query”] to only receive updates of
-	// these types. See Update (https://core.telegram.org/bots/api#update) for a complete list of available update
-	// types. Specify an empty list to receive all update types except chat_member (default). If not specified, the
-	// previous setting will be used.
+	// example, specify ["message", "edited_channel_post", "callback_query"] to only receive updates of these types.
+	// See Update (https://core.telegram.org/bots/api#update) for a complete list of available update types. Specify
+	// an empty list to receive all update types except chat_member, message_reaction, and message_reaction_count
+	// (default). If not specified, the previous setting will be used.
 	// Please note that this parameter doesn't affect updates created before the call to the getUpdates, so unwanted
 	// updates may be received for a short period of time.
 	AllowedUpdates []string `json:"allowed_updates,omitempty"`
@@ -40,6 +40,8 @@ const (
 	EditedMessageUpdates      = "edited_message"
 	ChannelPostUpdates        = "channel_post"
 	EditedChannelPostUpdates  = "edited_channel_post"
+	MessageReaction           = "message_reaction"
+	MessageReactionCount      = "message_reaction_count"
 	InlineQueryUpdates        = "inline_query"
 	ChosenInlineResultUpdates = "chosen_inline_result"
 	CallbackQueryUpdates      = "callback_query"
@@ -85,10 +87,10 @@ type SetWebhookParams struct {
 	MaxConnections int `json:"max_connections,omitempty"`
 
 	// AllowedUpdates - Optional. A JSON-serialized list of the update types you want your bot to receive. For
-	// example, specify [“message”, “edited_channel_post”, “callback_query”] to only receive updates of
-	// these types. See Update (https://core.telegram.org/bots/api#update) for a complete list of available update
-	// types. Specify an empty list to receive all update types except chat_member (default). If not specified, the
-	// previous setting will be used.
+	// example, specify ["message", "edited_channel_post", "callback_query"] to only receive updates of these types.
+	// See Update (https://core.telegram.org/bots/api#update) for a complete list of available update types. Specify
+	// an empty list to receive all update types except chat_member, message_reaction, and message_reaction_count
+	// (default). If not specified, the previous setting will be used.
 	// Please note that this parameter doesn't affect updates created before the call to the setWebhook, so unwanted
 	// updates may be received for a short period of time.
 	AllowedUpdates []string `json:"allowed_updates,omitempty"`
@@ -198,6 +200,10 @@ func (b *Bot) Close() error {
 
 // SendMessageParams - Represents parameters of sendMessage method.
 type SendMessageParams struct {
+	// BusinessConnectionID - Optional. Unique identifier of the business connection on behalf of which the
+	// message will be sent
+	BusinessConnectionID string `json:"business_connection_id,omitempty"`
+
 	// ChatID - Unique identifier for the target chat or username of the target channel (in the format
 	// @channel_username)
 	ChatID ChatID `json:"chat_id"`
@@ -217,8 +223,8 @@ type SendMessageParams struct {
 	// specified instead of parse_mode
 	Entities []MessageEntity `json:"entities,omitempty"`
 
-	// DisableWebPagePreview - Optional. Disables link previews for links in this message
-	DisableWebPagePreview bool `json:"disable_web_page_preview,omitempty"`
+	// LinkPreviewOptions - Optional. Link preview generation options for the message
+	LinkPreviewOptions *LinkPreviewOptions `json:"link_preview_options,omitempty"`
 
 	// DisableNotification - Optional. Sends the message silently
 	// (https://telegram.org/blog/channels-2-0#silent-messages). Users will receive a notification with no sound.
@@ -227,17 +233,17 @@ type SendMessageParams struct {
 	// ProtectContent - Optional. Protects the contents of the sent message from forwarding and saving
 	ProtectContent bool `json:"protect_content,omitempty"`
 
-	// ReplyToMessageID - Optional. If the message is a reply, ID of the original message
-	ReplyToMessageID int `json:"reply_to_message_id,omitempty"`
+	// MessageEffectID - Optional. Unique identifier of the message effect to be added to the message; for
+	// private chats only
+	MessageEffectID string `json:"message_effect_id,omitempty"`
 
-	// AllowSendingWithoutReply - Optional. Pass True if the message should be sent even if the specified
-	// replied-to message is not found
-	AllowSendingWithoutReply bool `json:"allow_sending_without_reply,omitempty"`
+	// ReplyParameters - Optional. Description of the message to reply to
+	ReplyParameters *ReplyParameters `json:"reply_parameters,omitempty"`
 
 	// ReplyMarkup - Optional. Additional interface options. A JSON-serialized object for an inline keyboard
 	// (https://core.telegram.org/bots/features#inline-keyboards), custom reply keyboard
-	// (https://core.telegram.org/bots/features#keyboards), instructions to remove reply keyboard or to force a
-	// reply from the user.
+	// (https://core.telegram.org/bots/features#keyboards), instructions to remove a reply keyboard or to force a
+	// reply from the user
 	ReplyMarkup ReplyMarkup `json:"reply_markup,omitempty"`
 }
 
@@ -285,8 +291,9 @@ type ForwardMessageParams struct {
 	MessageID int `json:"message_id"`
 }
 
-// ForwardMessage - Use this method to forward messages of any kind. Service messages can't be forwarded. On
-// success, the sent Message (https://core.telegram.org/bots/api#message) is returned.
+// ForwardMessage - Use this method to forward messages of any kind. Service messages and messages with
+// protected content can't be forwarded. On success, the sent Message
+// (https://core.telegram.org/bots/api#message) is returned.
 func (b *Bot) ForwardMessage(params *ForwardMessageParams) (*Message, error) {
 	var message *Message
 	err := b.performRequest("forwardMessage", params, &message)
@@ -295,6 +302,46 @@ func (b *Bot) ForwardMessage(params *ForwardMessageParams) (*Message, error) {
 	}
 
 	return message, nil
+}
+
+// ForwardMessagesParams - Represents parameters of forwardMessages method.
+type ForwardMessagesParams struct {
+	// ChatID - Unique identifier for the target chat or username of the target channel (in the format
+	// @channel_username)
+	ChatID ChatID `json:"chat_id"`
+
+	// MessageThreadID - Optional. Unique identifier for the target message thread (topic) of the forum; for
+	// forum supergroups only
+	MessageThreadID int `json:"message_thread_id,omitempty"`
+
+	// FromChatID - Unique identifier for the chat where the original messages were sent (or channel username in
+	// the format @channel_username)
+	FromChatID ChatID `json:"from_chat_id"`
+
+	// MessageIDs - A JSON-serialized list of 1-100 identifiers of messages in the chat from_chat_id to forward.
+	// The identifiers must be specified in a strictly increasing order.
+	MessageIDs []int `json:"message_ids"`
+
+	// DisableNotification - Optional. Sends the messages silently
+	// (https://telegram.org/blog/channels-2-0#silent-messages). Users will receive a notification with no sound.
+	DisableNotification bool `json:"disable_notification,omitempty"`
+
+	// ProtectContent - Optional. Protects the contents of the forwarded messages from forwarding and saving
+	ProtectContent bool `json:"protect_content,omitempty"`
+}
+
+// ForwardMessages - Use this method to forward multiple messages of any kind. If some of the specified
+// messages can't be found or forwarded, they are skipped. Service messages and messages with protected content
+// can't be forwarded. Album grouping is kept for forwarded messages. On success, an array of MessageID
+// (https://core.telegram.org/bots/api#messageid) of the sent messages is returned.
+func (b *Bot) ForwardMessages(params *ForwardMessagesParams) (*MessageID, error) {
+	var messageID *MessageID
+	err := b.performRequest("forwardMessages", params, &messageID)
+	if err != nil {
+		return nil, fmt.Errorf("telego: forwardMessages(): %w", err)
+	}
+
+	return messageID, nil
 }
 
 // CopyMessageParams - Represents parameters of copyMessage method.
@@ -326,6 +373,10 @@ type CopyMessageParams struct {
 	// which can be specified instead of parse_mode
 	CaptionEntities []MessageEntity `json:"caption_entities,omitempty"`
 
+	// ShowCaptionAboveMedia - Optional. Pass True, if the caption must be shown above the message media.
+	// Ignored if a new caption isn't specified.
+	ShowCaptionAboveMedia bool `json:"show_caption_above_media,omitempty"`
+
 	// DisableNotification - Optional. Sends the message silently
 	// (https://telegram.org/blog/channels-2-0#silent-messages). Users will receive a notification with no sound.
 	DisableNotification bool `json:"disable_notification,omitempty"`
@@ -333,26 +384,22 @@ type CopyMessageParams struct {
 	// ProtectContent - Optional. Protects the contents of the sent message from forwarding and saving
 	ProtectContent bool `json:"protect_content,omitempty"`
 
-	// ReplyToMessageID - Optional. If the message is a reply, ID of the original message
-	ReplyToMessageID int `json:"reply_to_message_id,omitempty"`
-
-	// AllowSendingWithoutReply - Optional. Pass True if the message should be sent even if the specified
-	// replied-to message is not found
-	AllowSendingWithoutReply bool `json:"allow_sending_without_reply,omitempty"`
+	// ReplyParameters - Optional. Description of the message to reply to
+	ReplyParameters *ReplyParameters `json:"reply_parameters,omitempty"`
 
 	// ReplyMarkup - Optional. Additional interface options. A JSON-serialized object for an inline keyboard
 	// (https://core.telegram.org/bots/features#inline-keyboards), custom reply keyboard
-	// (https://core.telegram.org/bots/features#keyboards), instructions to remove reply keyboard or to force a
-	// reply from the user.
+	// (https://core.telegram.org/bots/features#keyboards), instructions to remove a reply keyboard or to force a
+	// reply from the user
 	ReplyMarkup ReplyMarkup `json:"reply_markup,omitempty"`
 }
 
-// CopyMessage - Use this method to copy messages of any kind. Service messages and invoice messages can't be
-// copied. A quiz poll (https://core.telegram.org/bots/api#poll) can be copied only if the value of the field
-// correct_option_id is known to the bot. The method is analogous to the method forwardMessage
-// (https://core.telegram.org/bots/api#forwardmessage), but the copied message doesn't have a link to the
-// original message. Returns the MessageID (https://core.telegram.org/bots/api#messageid) of the sent message on
-// success.
+// CopyMessage - Use this method to copy messages of any kind. Service messages, giveaway messages, giveaway
+// winners messages, and invoice messages can't be copied. A quiz poll (https://core.telegram.org/bots/api#poll)
+// can be copied only if the value of the field correct_option_id is known to the bot. The method is analogous
+// to the method forwardMessage (https://core.telegram.org/bots/api#forwardmessage), but the copied message
+// doesn't have a link to the original message. Returns the MessageID
+// (https://core.telegram.org/bots/api#messageid) of the sent message on success.
 func (b *Bot) CopyMessage(params *CopyMessageParams) (*MessageID, error) {
 	var messageID *MessageID
 	err := b.performRequest("copyMessage", params, &messageID)
@@ -363,8 +410,58 @@ func (b *Bot) CopyMessage(params *CopyMessageParams) (*MessageID, error) {
 	return messageID, nil
 }
 
+// CopyMessagesParams - Represents parameters of copyMessages method.
+type CopyMessagesParams struct {
+	// ChatID - Unique identifier for the target chat or username of the target channel (in the format
+	// @channel_username)
+	ChatID ChatID `json:"chat_id"`
+
+	// MessageThreadID - Optional. Unique identifier for the target message thread (topic) of the forum; for
+	// forum supergroups only
+	MessageThreadID int `json:"message_thread_id,omitempty"`
+
+	// FromChatID - Unique identifier for the chat where the original messages were sent (or channel username in
+	// the format @channel_username)
+	FromChatID ChatID `json:"from_chat_id"`
+
+	// MessageIDs - A JSON-serialized list of 1-100 identifiers of messages in the chat from_chat_id to copy.
+	// The identifiers must be specified in a strictly increasing order.
+	MessageIDs []int `json:"message_ids"`
+
+	// DisableNotification - Optional. Sends the messages silently
+	// (https://telegram.org/blog/channels-2-0#silent-messages). Users will receive a notification with no sound.
+	DisableNotification bool `json:"disable_notification,omitempty"`
+
+	// ProtectContent - Optional. Protects the contents of the sent messages from forwarding and saving
+	ProtectContent bool `json:"protect_content,omitempty"`
+
+	// RemoveCaption - Optional. Pass True to copy the messages without their captions
+	RemoveCaption bool `json:"remove_caption,omitempty"`
+}
+
+// CopyMessages - Use this method to copy messages of any kind. If some of the specified messages can't be
+// found or copied, they are skipped. Service messages, giveaway messages, giveaway winners messages, and
+// invoice messages can't be copied. A quiz poll (https://core.telegram.org/bots/api#poll) can be copied only if
+// the value of the field correct_option_id is known to the bot. The method is analogous to the method
+// forwardMessages (https://core.telegram.org/bots/api#forwardmessages), but the copied messages don't have a
+// link to the original message. Album grouping is kept for copied messages. On success, an array of MessageID
+// (https://core.telegram.org/bots/api#messageid) of the sent messages is returned.
+func (b *Bot) CopyMessages(params *CopyMessagesParams) (*MessageID, error) {
+	var messageID *MessageID
+	err := b.performRequest("copyMessages", params, &messageID)
+	if err != nil {
+		return nil, fmt.Errorf("telego: copyMessages(): %w", err)
+	}
+
+	return messageID, nil
+}
+
 // SendPhotoParams - Represents parameters of sendPhoto method.
 type SendPhotoParams struct {
+	// BusinessConnectionID - Optional. Unique identifier of the business connection on behalf of which the
+	// message will be sent
+	BusinessConnectionID string `json:"business_connection_id,omitempty"`
+
 	// ChatID - Unique identifier for the target chat or username of the target channel (in the format
 	// @channel_username)
 	ChatID ChatID `json:"chat_id"`
@@ -392,6 +489,9 @@ type SendPhotoParams struct {
 	// can be specified instead of parse_mode
 	CaptionEntities []MessageEntity `json:"caption_entities,omitempty"`
 
+	// ShowCaptionAboveMedia - Optional. Pass True, if the caption must be shown above the message media
+	ShowCaptionAboveMedia bool `json:"show_caption_above_media,omitempty"`
+
 	// HasSpoiler - Optional. Pass True if the photo needs to be covered with a spoiler animation
 	HasSpoiler bool `json:"has_spoiler,omitempty"`
 
@@ -402,17 +502,17 @@ type SendPhotoParams struct {
 	// ProtectContent - Optional. Protects the contents of the sent message from forwarding and saving
 	ProtectContent bool `json:"protect_content,omitempty"`
 
-	// ReplyToMessageID - Optional. If the message is a reply, ID of the original message
-	ReplyToMessageID int `json:"reply_to_message_id,omitempty"`
+	// MessageEffectID - Optional. Unique identifier of the message effect to be added to the message; for
+	// private chats only
+	MessageEffectID string `json:"message_effect_id,omitempty"`
 
-	// AllowSendingWithoutReply - Optional. Pass True if the message should be sent even if the specified
-	// replied-to message is not found
-	AllowSendingWithoutReply bool `json:"allow_sending_without_reply,omitempty"`
+	// ReplyParameters - Optional. Description of the message to reply to
+	ReplyParameters *ReplyParameters `json:"reply_parameters,omitempty"`
 
 	// ReplyMarkup - Optional. Additional interface options. A JSON-serialized object for an inline keyboard
 	// (https://core.telegram.org/bots/features#inline-keyboards), custom reply keyboard
-	// (https://core.telegram.org/bots/features#keyboards), instructions to remove reply keyboard or to force a
-	// reply from the user.
+	// (https://core.telegram.org/bots/features#keyboards), instructions to remove a reply keyboard or to force a
+	// reply from the user
 	ReplyMarkup ReplyMarkup `json:"reply_markup,omitempty"`
 }
 
@@ -436,6 +536,10 @@ func (b *Bot) SendPhoto(params *SendPhotoParams) (*Message, error) {
 
 // SendAudioParams - Represents parameters of sendAudio method.
 type SendAudioParams struct {
+	// BusinessConnectionID - Optional. Unique identifier of the business connection on behalf of which the
+	// message will be sent
+	BusinessConnectionID string `json:"business_connection_id,omitempty"`
+
 	// ChatID - Unique identifier for the target chat or username of the target channel (in the format
 	// @channel_username)
 	ChatID ChatID `json:"chat_id"`
@@ -485,17 +589,17 @@ type SendAudioParams struct {
 	// ProtectContent - Optional. Protects the contents of the sent message from forwarding and saving
 	ProtectContent bool `json:"protect_content,omitempty"`
 
-	// ReplyToMessageID - Optional. If the message is a reply, ID of the original message
-	ReplyToMessageID int `json:"reply_to_message_id,omitempty"`
+	// MessageEffectID - Optional. Unique identifier of the message effect to be added to the message; for
+	// private chats only
+	MessageEffectID string `json:"message_effect_id,omitempty"`
 
-	// AllowSendingWithoutReply - Optional. Pass True if the message should be sent even if the specified
-	// replied-to message is not found
-	AllowSendingWithoutReply bool `json:"allow_sending_without_reply,omitempty"`
+	// ReplyParameters - Optional. Description of the message to reply to
+	ReplyParameters *ReplyParameters `json:"reply_parameters,omitempty"`
 
 	// ReplyMarkup - Optional. Additional interface options. A JSON-serialized object for an inline keyboard
 	// (https://core.telegram.org/bots/features#inline-keyboards), custom reply keyboard
-	// (https://core.telegram.org/bots/features#keyboards), instructions to remove reply keyboard or to force a
-	// reply from the user.
+	// (https://core.telegram.org/bots/features#keyboards), instructions to remove a reply keyboard or to force a
+	// reply from the user
 	ReplyMarkup ReplyMarkup `json:"reply_markup,omitempty"`
 }
 
@@ -527,6 +631,10 @@ func (b *Bot) SendAudio(params *SendAudioParams) (*Message, error) {
 
 // SendDocumentParams - Represents parameters of sendDocument method.
 type SendDocumentParams struct {
+	// BusinessConnectionID - Optional. Unique identifier of the business connection on behalf of which the
+	// message will be sent
+	BusinessConnectionID string `json:"business_connection_id,omitempty"`
+
 	// ChatID - Unique identifier for the target chat or username of the target channel (in the format
 	// @channel_username)
 	ChatID ChatID `json:"chat_id"`
@@ -572,17 +680,17 @@ type SendDocumentParams struct {
 	// ProtectContent - Optional. Protects the contents of the sent message from forwarding and saving
 	ProtectContent bool `json:"protect_content,omitempty"`
 
-	// ReplyToMessageID - Optional. If the message is a reply, ID of the original message
-	ReplyToMessageID int `json:"reply_to_message_id,omitempty"`
+	// MessageEffectID - Optional. Unique identifier of the message effect to be added to the message; for
+	// private chats only
+	MessageEffectID string `json:"message_effect_id,omitempty"`
 
-	// AllowSendingWithoutReply - Optional. Pass True if the message should be sent even if the specified
-	// replied-to message is not found
-	AllowSendingWithoutReply bool `json:"allow_sending_without_reply,omitempty"`
+	// ReplyParameters - Optional. Description of the message to reply to
+	ReplyParameters *ReplyParameters `json:"reply_parameters,omitempty"`
 
 	// ReplyMarkup - Optional. Additional interface options. A JSON-serialized object for an inline keyboard
 	// (https://core.telegram.org/bots/features#inline-keyboards), custom reply keyboard
-	// (https://core.telegram.org/bots/features#keyboards), instructions to remove reply keyboard or to force a
-	// reply from the user.
+	// (https://core.telegram.org/bots/features#keyboards), instructions to remove a reply keyboard or to force a
+	// reply from the user
 	ReplyMarkup ReplyMarkup `json:"reply_markup,omitempty"`
 }
 
@@ -612,6 +720,10 @@ func (b *Bot) SendDocument(params *SendDocumentParams) (*Message, error) {
 
 // SendVideoParams - Represents parameters of sendVideo method.
 type SendVideoParams struct {
+	// BusinessConnectionID - Optional. Unique identifier of the business connection on behalf of which the
+	// message will be sent
+	BusinessConnectionID string `json:"business_connection_id,omitempty"`
+
 	// ChatID - Unique identifier for the target chat or username of the target channel (in the format
 	// @channel_username)
 	ChatID ChatID `json:"chat_id"`
@@ -655,6 +767,9 @@ type SendVideoParams struct {
 	// can be specified instead of parse_mode
 	CaptionEntities []MessageEntity `json:"caption_entities,omitempty"`
 
+	// ShowCaptionAboveMedia - Optional. Pass True, if the caption must be shown above the message media
+	ShowCaptionAboveMedia bool `json:"show_caption_above_media,omitempty"`
+
 	// HasSpoiler - Optional. Pass True if the video needs to be covered with a spoiler animation
 	HasSpoiler bool `json:"has_spoiler,omitempty"`
 
@@ -668,17 +783,17 @@ type SendVideoParams struct {
 	// ProtectContent - Optional. Protects the contents of the sent message from forwarding and saving
 	ProtectContent bool `json:"protect_content,omitempty"`
 
-	// ReplyToMessageID - Optional. If the message is a reply, ID of the original message
-	ReplyToMessageID int `json:"reply_to_message_id,omitempty"`
+	// MessageEffectID - Optional. Unique identifier of the message effect to be added to the message; for
+	// private chats only
+	MessageEffectID string `json:"message_effect_id,omitempty"`
 
-	// AllowSendingWithoutReply - Optional. Pass True if the message should be sent even if the specified
-	// replied-to message is not found
-	AllowSendingWithoutReply bool `json:"allow_sending_without_reply,omitempty"`
+	// ReplyParameters - Optional. Description of the message to reply to
+	ReplyParameters *ReplyParameters `json:"reply_parameters,omitempty"`
 
 	// ReplyMarkup - Optional. Additional interface options. A JSON-serialized object for an inline keyboard
 	// (https://core.telegram.org/bots/features#inline-keyboards), custom reply keyboard
-	// (https://core.telegram.org/bots/features#keyboards), instructions to remove reply keyboard or to force a
-	// reply from the user.
+	// (https://core.telegram.org/bots/features#keyboards), instructions to remove a reply keyboard or to force a
+	// reply from the user
 	ReplyMarkup ReplyMarkup `json:"reply_markup,omitempty"`
 }
 
@@ -709,6 +824,10 @@ func (b *Bot) SendVideo(params *SendVideoParams) (*Message, error) {
 
 // SendAnimationParams - Represents parameters of sendAnimation method.
 type SendAnimationParams struct {
+	// BusinessConnectionID - Optional. Unique identifier of the business connection on behalf of which the
+	// message will be sent
+	BusinessConnectionID string `json:"business_connection_id,omitempty"`
+
 	// ChatID - Unique identifier for the target chat or username of the target channel (in the format
 	// @channel_username)
 	ChatID ChatID `json:"chat_id"`
@@ -752,6 +871,9 @@ type SendAnimationParams struct {
 	// can be specified instead of parse_mode
 	CaptionEntities []MessageEntity `json:"caption_entities,omitempty"`
 
+	// ShowCaptionAboveMedia - Optional. Pass True, if the caption must be shown above the message media
+	ShowCaptionAboveMedia bool `json:"show_caption_above_media,omitempty"`
+
 	// HasSpoiler - Optional. Pass True if the animation needs to be covered with a spoiler animation
 	HasSpoiler bool `json:"has_spoiler,omitempty"`
 
@@ -762,17 +884,17 @@ type SendAnimationParams struct {
 	// ProtectContent - Optional. Protects the contents of the sent message from forwarding and saving
 	ProtectContent bool `json:"protect_content,omitempty"`
 
-	// ReplyToMessageID - Optional. If the message is a reply, ID of the original message
-	ReplyToMessageID int `json:"reply_to_message_id,omitempty"`
+	// MessageEffectID - Optional. Unique identifier of the message effect to be added to the message; for
+	// private chats only
+	MessageEffectID string `json:"message_effect_id,omitempty"`
 
-	// AllowSendingWithoutReply - Optional. Pass True if the message should be sent even if the specified
-	// replied-to message is not found
-	AllowSendingWithoutReply bool `json:"allow_sending_without_reply,omitempty"`
+	// ReplyParameters - Optional. Description of the message to reply to
+	ReplyParameters *ReplyParameters `json:"reply_parameters,omitempty"`
 
 	// ReplyMarkup - Optional. Additional interface options. A JSON-serialized object for an inline keyboard
 	// (https://core.telegram.org/bots/features#inline-keyboards), custom reply keyboard
-	// (https://core.telegram.org/bots/features#keyboards), instructions to remove reply keyboard or to force a
-	// reply from the user.
+	// (https://core.telegram.org/bots/features#keyboards), instructions to remove a reply keyboard or to force a
+	// reply from the user
 	ReplyMarkup ReplyMarkup `json:"reply_markup,omitempty"`
 }
 
@@ -802,6 +924,10 @@ func (b *Bot) SendAnimation(params *SendAnimationParams) (*Message, error) {
 
 // SendVoiceParams - Represents parameters of sendVoice method.
 type SendVoiceParams struct {
+	// BusinessConnectionID - Optional. Unique identifier of the business connection on behalf of which the
+	// message will be sent
+	BusinessConnectionID string `json:"business_connection_id,omitempty"`
+
 	// ChatID - Unique identifier for the target chat or username of the target channel (in the format
 	// @channel_username)
 	ChatID ChatID `json:"chat_id"`
@@ -837,17 +963,17 @@ type SendVoiceParams struct {
 	// ProtectContent - Optional. Protects the contents of the sent message from forwarding and saving
 	ProtectContent bool `json:"protect_content,omitempty"`
 
-	// ReplyToMessageID - Optional. If the message is a reply, ID of the original message
-	ReplyToMessageID int `json:"reply_to_message_id,omitempty"`
+	// MessageEffectID - Optional. Unique identifier of the message effect to be added to the message; for
+	// private chats only
+	MessageEffectID string `json:"message_effect_id,omitempty"`
 
-	// AllowSendingWithoutReply - Optional. Pass True if the message should be sent even if the specified
-	// replied-to message is not found
-	AllowSendingWithoutReply bool `json:"allow_sending_without_reply,omitempty"`
+	// ReplyParameters - Optional. Description of the message to reply to
+	ReplyParameters *ReplyParameters `json:"reply_parameters,omitempty"`
 
 	// ReplyMarkup - Optional. Additional interface options. A JSON-serialized object for an inline keyboard
 	// (https://core.telegram.org/bots/features#inline-keyboards), custom reply keyboard
-	// (https://core.telegram.org/bots/features#keyboards), instructions to remove reply keyboard or to force a
-	// reply from the user.
+	// (https://core.telegram.org/bots/features#keyboards), instructions to remove a reply keyboard or to force a
+	// reply from the user
 	ReplyMarkup ReplyMarkup `json:"reply_markup,omitempty"`
 }
 
@@ -858,9 +984,9 @@ func (p *SendVoiceParams) fileParameters() map[string]ta.NamedReader {
 }
 
 // SendVoice - Use this method to send audio files, if you want Telegram clients to display the file as a
-// playable voice message. For this to work, your audio must be in an .OGG file encoded with OPUS (other formats
-// may be sent as Audio (https://core.telegram.org/bots/api#audio) or Document
-// (https://core.telegram.org/bots/api#document)). On success, the sent Message
+// playable voice message. For this to work, your audio must be in an .OGG file encoded with OPUS, or in .MP3
+// format, or in .M4A format (other formats may be sent as Audio (https://core.telegram.org/bots/api#audio) or
+// Document (https://core.telegram.org/bots/api#document)). On success, the sent Message
 // (https://core.telegram.org/bots/api#message) is returned. Bots can currently send voice messages of up to 50
 // MB in size, this limit may be changed in the future.
 func (b *Bot) SendVoice(params *SendVoiceParams) (*Message, error) {
@@ -875,6 +1001,10 @@ func (b *Bot) SendVoice(params *SendVoiceParams) (*Message, error) {
 
 // SendVideoNoteParams - Represents parameters of sendVideoNote method.
 type SendVideoNoteParams struct {
+	// BusinessConnectionID - Optional. Unique identifier of the business connection on behalf of which the
+	// message will be sent
+	BusinessConnectionID string `json:"business_connection_id,omitempty"`
+
 	// ChatID - Unique identifier for the target chat or username of the target channel (in the format
 	// @channel_username)
 	ChatID ChatID `json:"chat_id"`
@@ -909,17 +1039,17 @@ type SendVideoNoteParams struct {
 	// ProtectContent - Optional. Protects the contents of the sent message from forwarding and saving
 	ProtectContent bool `json:"protect_content,omitempty"`
 
-	// ReplyToMessageID - Optional. If the message is a reply, ID of the original message
-	ReplyToMessageID int `json:"reply_to_message_id,omitempty"`
+	// MessageEffectID - Optional. Unique identifier of the message effect to be added to the message; for
+	// private chats only
+	MessageEffectID string `json:"message_effect_id,omitempty"`
 
-	// AllowSendingWithoutReply - Optional. Pass True if the message should be sent even if the specified
-	// replied-to message is not found
-	AllowSendingWithoutReply bool `json:"allow_sending_without_reply,omitempty"`
+	// ReplyParameters - Optional. Description of the message to reply to
+	ReplyParameters *ReplyParameters `json:"reply_parameters,omitempty"`
 
 	// ReplyMarkup - Optional. Additional interface options. A JSON-serialized object for an inline keyboard
 	// (https://core.telegram.org/bots/features#inline-keyboards), custom reply keyboard
-	// (https://core.telegram.org/bots/features#keyboards), instructions to remove reply keyboard or to force a
-	// reply from the user.
+	// (https://core.telegram.org/bots/features#keyboards), instructions to remove a reply keyboard or to force a
+	// reply from the user
 	ReplyMarkup ReplyMarkup `json:"reply_markup,omitempty"`
 }
 
@@ -949,6 +1079,10 @@ func (b *Bot) SendVideoNote(params *SendVideoNoteParams) (*Message, error) {
 
 // SendMediaGroupParams - Represents parameters of sendMediaGroup method.
 type SendMediaGroupParams struct {
+	// BusinessConnectionID - Optional. Unique identifier of the business connection on behalf of which the
+	// message will be sent
+	BusinessConnectionID string `json:"business_connection_id,omitempty"`
+
 	// ChatID - Unique identifier for the target chat or username of the target channel (in the format
 	// @channel_username)
 	ChatID ChatID `json:"chat_id"`
@@ -967,12 +1101,12 @@ type SendMediaGroupParams struct {
 	// ProtectContent - Optional. Protects the contents of the sent messages from forwarding and saving
 	ProtectContent bool `json:"protect_content,omitempty"`
 
-	// ReplyToMessageID - Optional. If the messages are a reply, ID of the original message
-	ReplyToMessageID int `json:"reply_to_message_id,omitempty"`
+	// MessageEffectID - Optional. Unique identifier of the message effect to be added to the message; for
+	// private chats only
+	MessageEffectID string `json:"message_effect_id,omitempty"`
 
-	// AllowSendingWithoutReply - Optional. Pass True if the message should be sent even if the specified
-	// replied-to message is not found
-	AllowSendingWithoutReply bool `json:"allow_sending_without_reply,omitempty"`
+	// ReplyParameters - Optional. Description of the message to reply to
+	ReplyParameters *ReplyParameters `json:"reply_parameters,omitempty"`
 }
 
 func (p *SendMediaGroupParams) fileParameters() map[string]ta.NamedReader {
@@ -1005,6 +1139,10 @@ func (b *Bot) SendMediaGroup(params *SendMediaGroupParams) ([]Message, error) {
 
 // SendLocationParams - Represents parameters of sendLocation method.
 type SendLocationParams struct {
+	// BusinessConnectionID - Optional. Unique identifier of the business connection on behalf of which the
+	// message will be sent
+	BusinessConnectionID string `json:"business_connection_id,omitempty"`
+
 	// ChatID - Unique identifier for the target chat or username of the target channel (in the format
 	// @channel_username)
 	ChatID ChatID `json:"chat_id"`
@@ -1022,8 +1160,9 @@ type SendLocationParams struct {
 	// HorizontalAccuracy - Optional. The radius of uncertainty for the location, measured in meters; 0-1500
 	HorizontalAccuracy float64 `json:"horizontal_accuracy,omitempty"`
 
-	// LivePeriod - Optional. Period in seconds for which the location will be updated (see Live Locations
-	// (https://telegram.org/blog/live-locations), should be between 60 and 86400.
+	// LivePeriod - Optional. Period in seconds during which the location will be updated (see Live Locations
+	// (https://telegram.org/blog/live-locations), should be between 60 and 86400, or 0x7FFFFFFF for live locations
+	// that can be edited indefinitely.
 	LivePeriod int `json:"live_period,omitempty"`
 
 	// Heading - Optional. For live locations, a direction in which the user is moving, in degrees. Must be
@@ -1041,17 +1180,17 @@ type SendLocationParams struct {
 	// ProtectContent - Optional. Protects the contents of the sent message from forwarding and saving
 	ProtectContent bool `json:"protect_content,omitempty"`
 
-	// ReplyToMessageID - Optional. If the message is a reply, ID of the original message
-	ReplyToMessageID int `json:"reply_to_message_id,omitempty"`
+	// MessageEffectID - Optional. Unique identifier of the message effect to be added to the message; for
+	// private chats only
+	MessageEffectID string `json:"message_effect_id,omitempty"`
 
-	// AllowSendingWithoutReply - Optional. Pass True if the message should be sent even if the specified
-	// replied-to message is not found
-	AllowSendingWithoutReply bool `json:"allow_sending_without_reply,omitempty"`
+	// ReplyParameters - Optional. Description of the message to reply to
+	ReplyParameters *ReplyParameters `json:"reply_parameters,omitempty"`
 
 	// ReplyMarkup - Optional. Additional interface options. A JSON-serialized object for an inline keyboard
 	// (https://core.telegram.org/bots/features#inline-keyboards), custom reply keyboard
-	// (https://core.telegram.org/bots/features#keyboards), instructions to remove reply keyboard or to force a
-	// reply from the user.
+	// (https://core.telegram.org/bots/features#keyboards), instructions to remove a reply keyboard or to force a
+	// reply from the user
 	ReplyMarkup ReplyMarkup `json:"reply_markup,omitempty"`
 }
 
@@ -1069,6 +1208,10 @@ func (b *Bot) SendLocation(params *SendLocationParams) (*Message, error) {
 
 // SendVenueParams - Represents parameters of sendVenue method.
 type SendVenueParams struct {
+	// BusinessConnectionID - Optional. Unique identifier of the business connection on behalf of which the
+	// message will be sent
+	BusinessConnectionID string `json:"business_connection_id,omitempty"`
+
 	// ChatID - Unique identifier for the target chat or username of the target channel (in the format
 	// @channel_username)
 	ChatID ChatID `json:"chat_id"`
@@ -1110,17 +1253,17 @@ type SendVenueParams struct {
 	// ProtectContent - Optional. Protects the contents of the sent message from forwarding and saving
 	ProtectContent bool `json:"protect_content,omitempty"`
 
-	// ReplyToMessageID - Optional. If the message is a reply, ID of the original message
-	ReplyToMessageID int `json:"reply_to_message_id,omitempty"`
+	// MessageEffectID - Optional. Unique identifier of the message effect to be added to the message; for
+	// private chats only
+	MessageEffectID string `json:"message_effect_id,omitempty"`
 
-	// AllowSendingWithoutReply - Optional. Pass True if the message should be sent even if the specified
-	// replied-to message is not found
-	AllowSendingWithoutReply bool `json:"allow_sending_without_reply,omitempty"`
+	// ReplyParameters - Optional. Description of the message to reply to
+	ReplyParameters *ReplyParameters `json:"reply_parameters,omitempty"`
 
 	// ReplyMarkup - Optional. Additional interface options. A JSON-serialized object for an inline keyboard
 	// (https://core.telegram.org/bots/features#inline-keyboards), custom reply keyboard
-	// (https://core.telegram.org/bots/features#keyboards), instructions to remove reply keyboard or to force a
-	// reply from the user.
+	// (https://core.telegram.org/bots/features#keyboards), instructions to remove a reply keyboard or to force a
+	// reply from the user
 	ReplyMarkup ReplyMarkup `json:"reply_markup,omitempty"`
 }
 
@@ -1138,6 +1281,10 @@ func (b *Bot) SendVenue(params *SendVenueParams) (*Message, error) {
 
 // SendContactParams - Represents parameters of sendContact method.
 type SendContactParams struct {
+	// BusinessConnectionID - Optional. Unique identifier of the business connection on behalf of which the
+	// message will be sent
+	BusinessConnectionID string `json:"business_connection_id,omitempty"`
+
 	// ChatID - Unique identifier for the target chat or username of the target channel (in the format
 	// @channel_username)
 	ChatID ChatID `json:"chat_id"`
@@ -1166,17 +1313,17 @@ type SendContactParams struct {
 	// ProtectContent - Optional. Protects the contents of the sent message from forwarding and saving
 	ProtectContent bool `json:"protect_content,omitempty"`
 
-	// ReplyToMessageID - Optional. If the message is a reply, ID of the original message
-	ReplyToMessageID int `json:"reply_to_message_id,omitempty"`
+	// MessageEffectID - Optional. Unique identifier of the message effect to be added to the message; for
+	// private chats only
+	MessageEffectID string `json:"message_effect_id,omitempty"`
 
-	// AllowSendingWithoutReply - Optional. Pass True if the message should be sent even if the specified
-	// replied-to message is not found
-	AllowSendingWithoutReply bool `json:"allow_sending_without_reply,omitempty"`
+	// ReplyParameters - Optional. Description of the message to reply to
+	ReplyParameters *ReplyParameters `json:"reply_parameters,omitempty"`
 
 	// ReplyMarkup - Optional. Additional interface options. A JSON-serialized object for an inline keyboard
 	// (https://core.telegram.org/bots/features#inline-keyboards), custom reply keyboard
-	// (https://core.telegram.org/bots/features#keyboards), instructions to remove reply keyboard or to force a
-	// reply from the user.
+	// (https://core.telegram.org/bots/features#keyboards), instructions to remove a reply keyboard or to force a
+	// reply from the user
 	ReplyMarkup ReplyMarkup `json:"reply_markup,omitempty"`
 }
 
@@ -1194,6 +1341,10 @@ func (b *Bot) SendContact(params *SendContactParams) (*Message, error) {
 
 // SendPollParams - Represents parameters of sendPoll method.
 type SendPollParams struct {
+	// BusinessConnectionID - Optional. Unique identifier of the business connection on behalf of which the
+	// message will be sent
+	BusinessConnectionID string `json:"business_connection_id,omitempty"`
+
 	// ChatID - Unique identifier for the target chat or username of the target channel (in the format
 	// @channel_username)
 	ChatID ChatID `json:"chat_id"`
@@ -1205,8 +1356,17 @@ type SendPollParams struct {
 	// Question - Poll question, 1-300 characters
 	Question string `json:"question"`
 
-	// Options - A JSON-serialized list of answer options, 2-10 strings 1-100 characters each
-	Options []string `json:"options"`
+	// QuestionParseMode - Optional. Mode for parsing entities in the question. See formatting options
+	// (https://core.telegram.org/bots/api#formatting-options) for more details. Currently, only custom emoji
+	// entities are allowed
+	QuestionParseMode string `json:"question_parse_mode,omitempty"`
+
+	// QuestionEntities - Optional. A JSON-serialized list of special entities that appear in the poll question.
+	// It can be specified instead of question_parse_mode
+	QuestionEntities []MessageEntity `json:"question_entities,omitempty"`
+
+	// Options - A JSON-serialized list of 2-10 answer options
+	Options []InputPollOption `json:"options"`
 
 	// IsAnonymous - Optional. True, if the poll needs to be anonymous, defaults to True
 	IsAnonymous *bool `json:"is_anonymous,omitempty"`
@@ -1220,7 +1380,7 @@ type SendPollParams struct {
 
 	// CorrectOptionID - Optional. 0-based identifier of the correct answer option, required for polls in quiz
 	// mode
-	CorrectOptionID int `json:"correct_option_id,omitempty"`
+	CorrectOptionID *int `json:"correct_option_id,omitempty"`
 
 	// Explanation - Optional. Text that is shown when a user chooses an incorrect answer or taps on the lamp
 	// icon in a quiz-style poll, 0-200 characters with at most 2 line feeds after entities parsing
@@ -1231,7 +1391,7 @@ type SendPollParams struct {
 	ExplanationParseMode string `json:"explanation_parse_mode,omitempty"`
 
 	// ExplanationEntities - Optional. A JSON-serialized list of special entities that appear in the poll
-	// explanation, which can be specified instead of parse_mode
+	// explanation. It can be specified instead of explanation_parse_mode
 	ExplanationEntities []MessageEntity `json:"explanation_entities,omitempty"`
 
 	// OpenPeriod - Optional. Amount of time in seconds the poll will be active after creation, 5-600. Can't be
@@ -1253,17 +1413,17 @@ type SendPollParams struct {
 	// ProtectContent - Optional. Protects the contents of the sent message from forwarding and saving
 	ProtectContent bool `json:"protect_content,omitempty"`
 
-	// ReplyToMessageID - Optional. If the message is a reply, ID of the original message
-	ReplyToMessageID int `json:"reply_to_message_id,omitempty"`
+	// MessageEffectID - Optional. Unique identifier of the message effect to be added to the message; for
+	// private chats only
+	MessageEffectID string `json:"message_effect_id,omitempty"`
 
-	// AllowSendingWithoutReply - Optional. Pass True if the message should be sent even if the specified
-	// replied-to message is not found
-	AllowSendingWithoutReply bool `json:"allow_sending_without_reply,omitempty"`
+	// ReplyParameters - Optional. Description of the message to reply to
+	ReplyParameters *ReplyParameters `json:"reply_parameters,omitempty"`
 
 	// ReplyMarkup - Optional. Additional interface options. A JSON-serialized object for an inline keyboard
 	// (https://core.telegram.org/bots/features#inline-keyboards), custom reply keyboard
-	// (https://core.telegram.org/bots/features#keyboards), instructions to remove reply keyboard or to force a
-	// reply from the user.
+	// (https://core.telegram.org/bots/features#keyboards), instructions to remove a reply keyboard or to force a
+	// reply from the user
 	ReplyMarkup ReplyMarkup `json:"reply_markup,omitempty"`
 }
 
@@ -1281,6 +1441,10 @@ func (b *Bot) SendPoll(params *SendPollParams) (*Message, error) {
 
 // SendDiceParams - Represents parameters of sendDice method.
 type SendDiceParams struct {
+	// BusinessConnectionID - Optional. Unique identifier of the business connection on behalf of which the
+	// message will be sent
+	BusinessConnectionID string `json:"business_connection_id,omitempty"`
+
 	// ChatID - Unique identifier for the target chat or username of the target channel (in the format
 	// @channel_username)
 	ChatID ChatID `json:"chat_id"`
@@ -1302,17 +1466,17 @@ type SendDiceParams struct {
 	// ProtectContent - Optional. Protects the contents of the sent message from forwarding
 	ProtectContent bool `json:"protect_content,omitempty"`
 
-	// ReplyToMessageID - Optional. If the message is a reply, ID of the original message
-	ReplyToMessageID int `json:"reply_to_message_id,omitempty"`
+	// MessageEffectID - Optional. Unique identifier of the message effect to be added to the message; for
+	// private chats only
+	MessageEffectID string `json:"message_effect_id,omitempty"`
 
-	// AllowSendingWithoutReply - Optional. Pass True if the message should be sent even if the specified
-	// replied-to message is not found
-	AllowSendingWithoutReply bool `json:"allow_sending_without_reply,omitempty"`
+	// ReplyParameters - Optional. Description of the message to reply to
+	ReplyParameters *ReplyParameters `json:"reply_parameters,omitempty"`
 
 	// ReplyMarkup - Optional. Additional interface options. A JSON-serialized object for an inline keyboard
 	// (https://core.telegram.org/bots/features#inline-keyboards), custom reply keyboard
-	// (https://core.telegram.org/bots/features#keyboards), instructions to remove reply keyboard or to force a
-	// reply from the user.
+	// (https://core.telegram.org/bots/features#keyboards), instructions to remove a reply keyboard or to force a
+	// reply from the user
 	ReplyMarkup ReplyMarkup `json:"reply_markup,omitempty"`
 }
 
@@ -1330,11 +1494,15 @@ func (b *Bot) SendDice(params *SendDiceParams) (*Message, error) {
 
 // SendChatActionParams - Represents parameters of sendChatAction method.
 type SendChatActionParams struct {
+	// BusinessConnectionID - Optional. Unique identifier of the business connection on behalf of which the
+	// action will be sent
+	BusinessConnectionID string `json:"business_connection_id,omitempty"`
+
 	// ChatID - Unique identifier for the target chat or username of the target channel (in the format
 	// @channel_username)
 	ChatID ChatID `json:"chat_id"`
 
-	// MessageThreadID - Optional. Unique identifier for the target message thread; supergroups only
+	// MessageThreadID - Optional. Unique identifier for the target message thread; for supergroups only
 	MessageThreadID int `json:"message_thread_id,omitempty"`
 
 	// Action - Type of action to broadcast. Choose one, depending on what the user is about to receive: typing
@@ -1377,6 +1545,37 @@ func (b *Bot) SendChatAction(params *SendChatActionParams) error {
 	err := b.performRequest("sendChatAction", params)
 	if err != nil {
 		return fmt.Errorf("telego: sendChatAction(): %w", err)
+	}
+
+	return nil
+}
+
+// SetMessageReactionParams - Represents parameters of setMessageReaction method.
+type SetMessageReactionParams struct {
+	// ChatID - Unique identifier for the target chat or username of the target channel (in the format
+	// @channel_username)
+	ChatID ChatID `json:"chat_id"`
+
+	// MessageID - Identifier of the target message. If the message belongs to a media group, the reaction is
+	// set to the first non-deleted message in the group instead.
+	MessageID int `json:"message_id"`
+
+	// Reaction - Optional. A JSON-serialized list of reaction types to set on the message. Currently, as
+	// non-premium users, bots can set up to one reaction per message. A custom emoji reaction can be used if it is
+	// either already present on the message or explicitly allowed by chat administrators.
+	Reaction []ReactionType `json:"reaction,omitempty"`
+
+	// IsBig - Optional. Pass True to set the reaction with a big animation
+	IsBig bool `json:"is_big,omitempty"`
+}
+
+// SetMessageReaction - Use this method to change the chosen reactions on a message. Service messages can't
+// be reacted to. Automatically forwarded messages from a channel to its discussion group have the same
+// available reactions as messages in the channel. Returns True on success.
+func (b *Bot) SetMessageReaction(params *SetMessageReactionParams) error {
+	err := b.performRequest("setMessageReaction", params)
+	if err != nil {
+		return fmt.Errorf("telego: setMessageReaction(): %w", err)
 	}
 
 	return nil
@@ -1539,37 +1738,19 @@ type PromoteChatMemberParams struct {
 	// IsAnonymous - Optional. Pass True if the administrator's presence in the chat is hidden
 	IsAnonymous *bool `json:"is_anonymous,omitempty"`
 
-	// CanManageChat - Optional. Pass True if the administrator can access the chat event log, chat statistics,
-	// boost list in channels, message statistics in channels, see channel members, see anonymous administrators in
-	// supergroups and ignore slow mode. Implied by any other administrator privilege
+	// CanManageChat - Optional. Pass True if the administrator can access the chat event log, get boost list,
+	// see hidden supergroup and channel members, report spam messages and ignore slow mode. Implied by any other
+	// administrator privilege.
 	CanManageChat *bool `json:"can_manage_chat,omitempty"`
-
-	// CanPostMessages - Optional. Pass True if the administrator can post messages in the channel; channels
-	// only
-	CanPostMessages *bool `json:"can_post_messages,omitempty"`
-
-	// CanEditMessages - Optional. Pass True if the administrator can edit messages of other users and can pin
-	// messages; channels only
-	CanEditMessages *bool `json:"can_edit_messages,omitempty"`
 
 	// CanDeleteMessages - Optional. Pass True if the administrator can delete messages of other users
 	CanDeleteMessages *bool `json:"can_delete_messages,omitempty"`
 
-	// CanPostStories - Optional. Pass True if the administrator can post stories in the channel; channels only
-	CanPostStories *bool `json:"can_post_stories,omitempty"`
-
-	// CanEditStories - Optional. Pass True if the administrator can edit stories posted by other users;
-	// channels only
-	CanEditStories *bool `json:"can_edit_stories,omitempty"`
-
-	// CanDeleteStories - Optional. Pass True if the administrator can delete stories posted by other users;
-	// channels only
-	CanDeleteStories *bool `json:"can_delete_stories,omitempty"`
-
 	// CanManageVideoChats - Optional. Pass True if the administrator can manage video chats
 	CanManageVideoChats *bool `json:"can_manage_video_chats,omitempty"`
 
-	// CanRestrictMembers - Optional. Pass True if the administrator can restrict, ban or unban chat members
+	// CanRestrictMembers - Optional. Pass True if the administrator can restrict, ban or unban chat members, or
+	// access supergroup statistics
 	CanRestrictMembers *bool `json:"can_restrict_members,omitempty"`
 
 	// CanPromoteMembers - Optional. Pass True if the administrator can add new administrators with a subset of
@@ -1583,11 +1764,29 @@ type PromoteChatMemberParams struct {
 	// CanInviteUsers - Optional. Pass True if the administrator can invite new users to the chat
 	CanInviteUsers *bool `json:"can_invite_users,omitempty"`
 
-	// CanPinMessages - Optional. Pass True if the administrator can pin messages, supergroups only
+	// CanPostStories - Optional. Pass True if the administrator can post stories to the chat
+	CanPostStories *bool `json:"can_post_stories,omitempty"`
+
+	// CanEditStories - Optional. Pass True if the administrator can edit stories posted by other users, post
+	// stories to the chat page, pin chat stories, and access the chat's story archive
+	CanEditStories *bool `json:"can_edit_stories,omitempty"`
+
+	// CanDeleteStories - Optional. Pass True if the administrator can delete stories posted by other users
+	CanDeleteStories *bool `json:"can_delete_stories,omitempty"`
+
+	// CanPostMessages - Optional. Pass True if the administrator can post messages in the channel, or access
+	// channel statistics; for channels only
+	CanPostMessages *bool `json:"can_post_messages,omitempty"`
+
+	// CanEditMessages - Optional. Pass True if the administrator can edit messages of other users and can pin
+	// messages; for channels only
+	CanEditMessages *bool `json:"can_edit_messages,omitempty"`
+
+	// CanPinMessages - Optional. Pass True if the administrator can pin messages; for supergroups only
 	CanPinMessages *bool `json:"can_pin_messages,omitempty"`
 
 	// CanManageTopics - Optional. Pass True if the user is allowed to create, rename, close, and reopen forum
-	// topics, supergroups only
+	// topics; for supergroups only
 	CanManageTopics *bool `json:"can_manage_topics,omitempty"`
 }
 
@@ -2044,17 +2243,16 @@ type GetChatParams struct {
 	ChatID ChatID `json:"chat_id"`
 }
 
-// GetChat - Use this method to get up to date information about the chat (current name of the user for
-// one-on-one conversations, current username of a user, group or channel, etc.). Returns a Chat
-// (https://core.telegram.org/bots/api#chat) object on success.
-func (b *Bot) GetChat(params *GetChatParams) (*Chat, error) {
-	var chat *Chat
-	err := b.performRequest("getChat", params, &chat)
+// GetChat - Use this method to get up-to-date information about the chat. Returns a ChatFullInfo
+// (https://core.telegram.org/bots/api#chatfullinfo) object on success.
+func (b *Bot) GetChat(params *GetChatParams) (*ChatFullInfo, error) {
+	var chatFullInfo *ChatFullInfo
+	err := b.performRequest("getChat", params, &chatFullInfo)
 	if err != nil {
 		return nil, fmt.Errorf("telego: getChat(): %w", err)
 	}
 
-	return chat, nil
+	return chatFullInfo, nil
 }
 
 // GetChatAdministratorsParams - Represents parameters of getChatAdministrators method.
@@ -2488,6 +2686,47 @@ func (b *Bot) AnswerCallbackQuery(params *AnswerCallbackQueryParams) error {
 	return nil
 }
 
+// GetUserChatBoostsParams - Represents parameters of getUserChatBoosts method.
+type GetUserChatBoostsParams struct {
+	// ChatID - Unique identifier for the chat or username of the channel (in the format @channel_username)
+	ChatID ChatID `json:"chat_id"`
+
+	// UserID - Unique identifier of the target user
+	UserID int64 `json:"user_id"`
+}
+
+// GetUserChatBoosts - Use this method to get the list of boosts added to a chat by a user. Requires
+// administrator rights in the chat. Returns a UserChatBoosts
+// (https://core.telegram.org/bots/api#userchatboosts) object.
+func (b *Bot) GetUserChatBoosts(params *GetUserChatBoostsParams) (*UserChatBoosts, error) {
+	var userChatBoosts *UserChatBoosts
+	err := b.performRequest("getUserChatBoosts", params, &userChatBoosts)
+	if err != nil {
+		return nil, fmt.Errorf("telego: getUserChatBoosts(): %w", err)
+	}
+
+	return userChatBoosts, nil
+}
+
+// GetBusinessConnectionParams - Represents parameters of getBusinessConnection method.
+type GetBusinessConnectionParams struct {
+	// BusinessConnectionID - Unique identifier of the business connection
+	BusinessConnectionID string `json:"business_connection_id"`
+}
+
+// GetBusinessConnection - Use this method to get information about the connection of the bot with a business
+// account. Returns a BusinessConnection (https://core.telegram.org/bots/api#businessconnection) object on
+// success.
+func (b *Bot) GetBusinessConnection(params *GetBusinessConnectionParams) (*BusinessConnection, error) {
+	var businessConnection *BusinessConnection
+	err := b.performRequest("getBusinessConnection", params, &businessConnection)
+	if err != nil {
+		return nil, fmt.Errorf("telego: getBusinessConnection(): %w", err)
+	}
+
+	return businessConnection, nil
+}
+
 // SetMyCommandsParams - Represents parameters of setMyCommands method.
 type SetMyCommandsParams struct {
 	// Commands - A JSON-serialized list of bot commands to be set as the list of the bot's commands. At most
@@ -2754,9 +2993,9 @@ type GetMyDefaultAdministratorRightsParams struct {
 
 // GetMyDefaultAdministratorRights - Use this method to get the current default administrator rights of the
 // bot. Returns ChatAdministratorRights (https://core.telegram.org/bots/api#chatadministratorrights) on success.
-func (b *Bot) GetMyDefaultAdministratorRights(params *GetMyDefaultAdministratorRightsParams) (
-	*ChatAdministratorRights, error,
-) {
+func (b *Bot) GetMyDefaultAdministratorRights(
+	params *GetMyDefaultAdministratorRightsParams,
+) (*ChatAdministratorRights, error) {
 	var chatAdministratorRights *ChatAdministratorRights
 	err := b.performRequest("getMyDefaultAdministratorRights", params, &chatAdministratorRights)
 	if err != nil {
@@ -2790,8 +3029,8 @@ type EditMessageTextParams struct {
 	// specified instead of parse_mode
 	Entities []MessageEntity `json:"entities,omitempty"`
 
-	// DisableWebPagePreview - Optional. Disables link previews for links in this message
-	DisableWebPagePreview bool `json:"disable_web_page_preview,omitempty"`
+	// LinkPreviewOptions - Optional. Link preview generation options for the message
+	LinkPreviewOptions *LinkPreviewOptions `json:"link_preview_options,omitempty"`
 
 	// ReplyMarkup - Optional. A JSON-serialized object for an inline keyboard
 	// (https://core.telegram.org/bots/features#inline-keyboards).
@@ -2835,6 +3074,10 @@ type EditMessageCaptionParams struct {
 	// CaptionEntities - Optional. A JSON-serialized list of special entities that appear in the caption, which
 	// can be specified instead of parse_mode
 	CaptionEntities []MessageEntity `json:"caption_entities,omitempty"`
+
+	// ShowCaptionAboveMedia - Optional. Pass True, if the caption must be shown above the message media.
+	// Supported only for animation, photo and video messages.
+	ShowCaptionAboveMedia bool `json:"show_caption_above_media,omitempty"`
 
 	// ReplyMarkup - Optional. A JSON-serialized object for an inline keyboard
 	// (https://core.telegram.org/bots/features#inline-keyboards).
@@ -2924,6 +3167,12 @@ type EditMessageLiveLocationParams struct {
 
 	// Longitude - Longitude of new location
 	Longitude float64 `json:"longitude"`
+
+	// LivePeriod - Optional. New period in seconds during which the location can be updated, starting from the
+	// message send date. If 0x7FFFFFFF is specified, then the location can be updated forever. Otherwise, the new
+	// value must not exceed the current live_period by more than a day, and the live location expiration date must
+	// remain within the next 90 days. If not specified, then live_period remains unchanged
+	LivePeriod int `json:"live_period,omitempty"`
 
 	// HorizontalAccuracy - Optional. The radius of uncertainty for the location, measured in meters; 0-1500
 	HorizontalAccuracy float64 `json:"horizontal_accuracy,omitempty"`
@@ -3079,8 +3328,34 @@ func (b *Bot) DeleteMessage(params *DeleteMessageParams) error {
 	return nil
 }
 
+// DeleteMessagesParams - Represents parameters of deleteMessages method.
+type DeleteMessagesParams struct {
+	// ChatID - Unique identifier for the target chat or username of the target channel (in the format
+	// @channel_username)
+	ChatID ChatID `json:"chat_id"`
+
+	// MessageIDs - A JSON-serialized list of 1-100 identifiers of messages to delete. See deleteMessage
+	// (https://core.telegram.org/bots/api#deletemessage) for limitations on which messages can be deleted
+	MessageIDs []int `json:"message_ids"`
+}
+
+// DeleteMessages - Use this method to delete multiple messages simultaneously. If some of the specified
+// messages can't be found, they are skipped. Returns True on success.
+func (b *Bot) DeleteMessages(params *DeleteMessagesParams) error {
+	err := b.performRequest("deleteMessages", params)
+	if err != nil {
+		return fmt.Errorf("telego: deleteMessages(): %w", err)
+	}
+
+	return nil
+}
+
 // SendStickerParams - Represents parameters of sendSticker method.
 type SendStickerParams struct {
+	// BusinessConnectionID - Optional. Unique identifier of the business connection on behalf of which the
+	// message will be sent
+	BusinessConnectionID string `json:"business_connection_id,omitempty"`
+
 	// ChatID - Unique identifier for the target chat or username of the target channel (in the format
 	// @channel_username)
 	ChatID ChatID `json:"chat_id"`
@@ -3091,9 +3366,9 @@ type SendStickerParams struct {
 
 	// Sticker - Sticker to send. Pass a file_id as String to send a file that exists on the Telegram servers
 	// (recommended), pass an HTTP URL as a String for Telegram to get a .WEBP sticker from the Internet, or upload
-	// a new .WEBP or .TGS sticker using multipart/form-data. More information on Sending Files »
-	// (https://core.telegram.org/bots/api#sending-files). Video stickers can only be sent by a file_id. Animated
-	// stickers can't be sent via an HTTP URL.
+	// a new .WEBP, .TGS, or .WEBM sticker using multipart/form-data. More information on Sending Files »
+	// (https://core.telegram.org/bots/api#sending-files). Video and animated stickers can't be sent via an HTTP
+	// URL.
 	Sticker InputFile `json:"sticker"`
 
 	// Emoji - Optional. Emoji associated with the sticker; only for just uploaded stickers
@@ -3106,17 +3381,17 @@ type SendStickerParams struct {
 	// ProtectContent - Optional. Protects the contents of the sent message from forwarding and saving
 	ProtectContent bool `json:"protect_content,omitempty"`
 
-	// ReplyToMessageID - Optional. If the message is a reply, ID of the original message
-	ReplyToMessageID int `json:"reply_to_message_id,omitempty"`
+	// MessageEffectID - Optional. Unique identifier of the message effect to be added to the message; for
+	// private chats only
+	MessageEffectID string `json:"message_effect_id,omitempty"`
 
-	// AllowSendingWithoutReply - Optional. Pass True if the message should be sent even if the specified
-	// replied-to message is not found
-	AllowSendingWithoutReply bool `json:"allow_sending_without_reply,omitempty"`
+	// ReplyParameters - Optional. Description of the message to reply to
+	ReplyParameters *ReplyParameters `json:"reply_parameters,omitempty"`
 
 	// ReplyMarkup - Optional. Additional interface options. A JSON-serialized object for an inline keyboard
 	// (https://core.telegram.org/bots/features#inline-keyboards), custom reply keyboard
-	// (https://core.telegram.org/bots/features#keyboards), instructions to remove reply keyboard or to force a
-	// reply from the user.
+	// (https://core.telegram.org/bots/features#keyboards), instructions to remove a reply keyboard or to force a
+	// reply from the user
 	ReplyMarkup ReplyMarkup `json:"reply_markup,omitempty"`
 }
 
@@ -3159,7 +3434,8 @@ func (b *Bot) GetStickerSet(params *GetStickerSetParams) (*StickerSet, error) {
 
 // GetCustomEmojiStickersParams - Represents parameters of getCustomEmojiStickers method.
 type GetCustomEmojiStickersParams struct {
-	// CustomEmojiIDs - List of custom emoji identifiers. At most 200 custom emoji identifiers can be specified.
+	// CustomEmojiIDs - A JSON-serialized list of custom emoji identifiers. At most 200 custom emoji identifiers
+	// can be specified.
 	CustomEmojiIDs []string `json:"custom_emoji_ids"`
 }
 
@@ -3203,9 +3479,10 @@ func (p *UploadStickerFileParams) fileParameters() map[string]ta.NamedReader {
 }
 
 // UploadStickerFile - Use this method to upload a file with a sticker for later use in the
-// createNewStickerSet (https://core.telegram.org/bots/api#createnewstickerset) and addStickerToSet
-// (https://core.telegram.org/bots/api#addstickertoset) methods (the file can be used multiple times). Returns
-// the uploaded File (https://core.telegram.org/bots/api#file) on success.
+// createNewStickerSet (https://core.telegram.org/bots/api#createnewstickerset), addStickerToSet
+// (https://core.telegram.org/bots/api#addstickertoset), or replaceStickerInSet
+// (https://core.telegram.org/bots/api#replacestickerinset) methods (the file can be used multiple times).
+// Returns the uploaded File (https://core.telegram.org/bots/api#file) on success.
 func (b *Bot) UploadStickerFile(params *UploadStickerFileParams) (*File, error) {
 	var file *File
 	err := b.performRequest("uploadStickerFile", params, &file)
@@ -3231,9 +3508,6 @@ type CreateNewStickerSetParams struct {
 
 	// Stickers - A JSON-serialized list of 1-50 initial stickers to be added to the sticker set
 	Stickers []InputSticker `json:"stickers"`
-
-	// StickerFormat - Format of stickers in the set, must be one of “static”, “animated”, “video”
-	StickerFormat string `json:"sticker_format"`
 
 	// StickerType - Optional. Type of stickers in the set, pass “regular”, “mask”, or
 	// “custom_emoji”. By default, a regular sticker set is created.
@@ -3298,10 +3572,8 @@ func (p *AddStickerToSetParams) fileParameters() map[string]ta.NamedReader {
 	}
 }
 
-// AddStickerToSet - Use this method to add a new sticker to a set created by the bot. The format of the
-// added sticker must match the format of the other stickers in the set. Emoji sticker sets can have up to 200
-// stickers. Animated and video sticker sets can have up to 50 stickers. Static sticker sets can have up to 120
-// stickers. Returns True on success.
+// AddStickerToSet - Use this method to add a new sticker to a set created by the bot. Emoji sticker sets can
+// have up to 200 stickers. Other sticker sets can have up to 120 stickers. Returns True on success.
 func (b *Bot) AddStickerToSet(params *AddStickerToSetParams) error {
 	err := b.performRequest("addStickerToSet", params)
 	if err != nil {
@@ -3343,6 +3615,36 @@ func (b *Bot) DeleteStickerFromSet(params *DeleteStickerFromSetParams) error {
 	err := b.performRequest("deleteStickerFromSet", params)
 	if err != nil {
 		return fmt.Errorf("telego: deleteStickerFromSet(): %w", err)
+	}
+
+	return nil
+}
+
+// ReplaceStickerInSetParams - Represents parameters of replaceStickerInSet method.
+type ReplaceStickerInSetParams struct {
+	// UserID - User identifier of the sticker set owner
+	UserID int64 `json:"user_id"`
+
+	// Name - Sticker set name
+	Name string `json:"name"`
+
+	// OldSticker - File identifier of the replaced sticker
+	OldSticker string `json:"old_sticker"`
+
+	// Sticker - A JSON-serialized object with information about the added sticker. If exactly the same sticker
+	// had already been added to the set, then the set remains unchanged.
+	Sticker InputSticker `json:"sticker"`
+}
+
+// ReplaceStickerInSet - Use this method to replace an existing sticker in a sticker set with a new one. The
+// method is equivalent to calling deleteStickerFromSet
+// (https://core.telegram.org/bots/api#deletestickerfromset), then addStickerToSet
+// (https://core.telegram.org/bots/api#addstickertoset), then setStickerPositionInSet
+// (https://core.telegram.org/bots/api#setstickerpositioninset). Returns True on success.
+func (b *Bot) ReplaceStickerInSet(params *ReplaceStickerInSetParams) error {
+	err := b.performRequest("replaceStickerInSet", params)
+	if err != nil {
+		return fmt.Errorf("telego: replaceStickerInSet(): %w", err)
 	}
 
 	return nil
@@ -3451,6 +3753,10 @@ type SetStickerSetThumbnailParams struct {
 	// sticker set thumbnails can't be uploaded via HTTP URL. If omitted, then the thumbnail is dropped and the
 	// first sticker is used as the thumbnail.
 	Thumbnail *InputFile `json:"thumbnail,omitempty"`
+
+	// Format - Format of the thumbnail, must be one of “static” for a .WEBP or .PNG image, “animated”
+	// for a .TGS animation, or “video” for a WEBM video
+	Format string `json:"format"`
 }
 
 func (p *SetStickerSetThumbnailParams) fileParameters() map[string]ta.NamedReader {
@@ -3592,21 +3898,25 @@ type SendInvoiceParams struct {
 	// internal processes.
 	Payload string `json:"payload"`
 
-	// ProviderToken - Payment provider token, obtained via @BotFather (https://t.me/botfather)
-	ProviderToken string `json:"provider_token"`
+	// ProviderToken - Optional. Payment provider token, obtained via @BotFather (https://t.me/botfather). Pass
+	// an empty string for payments in Telegram Stars (https://t.me/BotNews/90).
+	ProviderToken string `json:"provider_token,omitempty"`
 
 	// Currency - Three-letter ISO 4217 currency code, see more on currencies
-	// (https://core.telegram.org/bots/payments#supported-currencies)
+	// (https://core.telegram.org/bots/payments#supported-currencies). Pass “XTR” for payments in Telegram Stars
+	// (https://t.me/BotNews/90).
 	Currency string `json:"currency"`
 
 	// Prices - Price breakdown, a JSON-serialized list of components (e.g. product price, tax, discount,
-	// delivery cost, delivery tax, bonus, etc.)
+	// delivery cost, delivery tax, bonus, etc.). Must contain exactly one item for payments in Telegram Stars
+	// (https://t.me/BotNews/90).
 	Prices []LabeledPrice `json:"prices"`
 
 	// MaxTipAmount - Optional. The maximum accepted amount for tips in the smallest units of the currency
 	// (integer, not float/double). For example, for a maximum tip of US$ 1.45 pass max_tip_amount = 145. See the
 	// exp parameter in currencies.json (https://core.telegram.org/bots/payments/currencies.json), it shows the
-	// number of digits past the decimal point for each currency (2 for the majority of currencies). Defaults to 0
+	// number of digits past the decimal point for each currency (2 for the majority of currencies). Defaults to 0.
+	// Not supported for payments in Telegram Stars (https://t.me/BotNews/90).
 	MaxTipAmount int `json:"max_tip_amount,omitempty"`
 
 	// SuggestedTipAmounts - Optional. A JSON-serialized array of suggested amounts of tips in the smallest
@@ -3638,26 +3948,32 @@ type SendInvoiceParams struct {
 	// PhotoHeight - Optional. Photo height
 	PhotoHeight int `json:"photo_height,omitempty"`
 
-	// NeedName - Optional. Pass True if you require the user's full name to complete the order
+	// NeedName - Optional. Pass True if you require the user's full name to complete the order. Ignored for
+	// payments in Telegram Stars (https://t.me/BotNews/90).
 	NeedName bool `json:"need_name,omitempty"`
 
-	// NeedPhoneNumber - Optional. Pass True if you require the user's phone number to complete the order
+	// NeedPhoneNumber - Optional. Pass True if you require the user's phone number to complete the order.
+	// Ignored for payments in Telegram Stars (https://t.me/BotNews/90).
 	NeedPhoneNumber bool `json:"need_phone_number,omitempty"`
 
-	// NeedEmail - Optional. Pass True if you require the user's email address to complete the order
+	// NeedEmail - Optional. Pass True if you require the user's email address to complete the order. Ignored
+	// for payments in Telegram Stars (https://t.me/BotNews/90).
 	NeedEmail bool `json:"need_email,omitempty"`
 
 	// NeedShippingAddress - Optional. Pass True if you require the user's shipping address to complete the
-	// order
+	// order. Ignored for payments in Telegram Stars (https://t.me/BotNews/90).
 	NeedShippingAddress bool `json:"need_shipping_address,omitempty"`
 
-	// SendPhoneNumberToProvider - Optional. Pass True if the user's phone number should be sent to provider
+	// SendPhoneNumberToProvider - Optional. Pass True if the user's phone number should be sent to the
+	// provider. Ignored for payments in Telegram Stars (https://t.me/BotNews/90).
 	SendPhoneNumberToProvider bool `json:"send_phone_number_to_provider,omitempty"`
 
-	// SendEmailToProvider - Optional. Pass True if the user's email address should be sent to provider
+	// SendEmailToProvider - Optional. Pass True if the user's email address should be sent to the provider.
+	// Ignored for payments in Telegram Stars (https://t.me/BotNews/90).
 	SendEmailToProvider bool `json:"send_email_to_provider,omitempty"`
 
-	// IsFlexible - Optional. Pass True if the final price depends on the shipping method
+	// IsFlexible - Optional. Pass True if the final price depends on the shipping method. Ignored for payments
+	// in Telegram Stars (https://t.me/BotNews/90).
 	IsFlexible bool `json:"is_flexible,omitempty"`
 
 	// DisableNotification - Optional. Sends the message silently
@@ -3667,12 +3983,12 @@ type SendInvoiceParams struct {
 	// ProtectContent - Optional. Protects the contents of the sent message from forwarding and saving
 	ProtectContent bool `json:"protect_content,omitempty"`
 
-	// ReplyToMessageID - Optional. If the message is a reply, ID of the original message
-	ReplyToMessageID int `json:"reply_to_message_id,omitempty"`
+	// MessageEffectID - Optional. Unique identifier of the message effect to be added to the message; for
+	// private chats only
+	MessageEffectID string `json:"message_effect_id,omitempty"`
 
-	// AllowSendingWithoutReply - Optional. Pass True if the message should be sent even if the specified
-	// replied-to message is not found
-	AllowSendingWithoutReply bool `json:"allow_sending_without_reply,omitempty"`
+	// ReplyParameters - Optional. Description of the message to reply to
+	ReplyParameters *ReplyParameters `json:"reply_parameters,omitempty"`
 
 	// ReplyMarkup - Optional. A JSON-serialized object for an inline keyboard
 	// (https://core.telegram.org/bots/features#inline-keyboards). If empty, one 'Pay total price' button will be
@@ -3704,21 +4020,25 @@ type CreateInvoiceLinkParams struct {
 	// internal processes.
 	Payload string `json:"payload"`
 
-	// ProviderToken - Payment provider token, obtained via BotFather (https://t.me/botfather)
-	ProviderToken string `json:"provider_token"`
+	// ProviderToken - Optional. Payment provider token, obtained via @BotFather (https://t.me/botfather). Pass
+	// an empty string for payments in Telegram Stars (https://t.me/BotNews/90).
+	ProviderToken string `json:"provider_token,omitempty"`
 
 	// Currency - Three-letter ISO 4217 currency code, see more on currencies
-	// (https://core.telegram.org/bots/payments#supported-currencies)
+	// (https://core.telegram.org/bots/payments#supported-currencies). Pass “XTR” for payments in Telegram Stars
+	// (https://t.me/BotNews/90).
 	Currency string `json:"currency"`
 
 	// Prices - Price breakdown, a JSON-serialized list of components (e.g. product price, tax, discount,
-	// delivery cost, delivery tax, bonus, etc.)
+	// delivery cost, delivery tax, bonus, etc.). Must contain exactly one item for payments in Telegram Stars
+	// (https://t.me/BotNews/90).
 	Prices []LabeledPrice `json:"prices"`
 
 	// MaxTipAmount - Optional. The maximum accepted amount for tips in the smallest units of the currency
 	// (integer, not float/double). For example, for a maximum tip of US$ 1.45 pass max_tip_amount = 145. See the
 	// exp parameter in currencies.json (https://core.telegram.org/bots/payments/currencies.json), it shows the
-	// number of digits past the decimal point for each currency (2 for the majority of currencies). Defaults to 0
+	// number of digits past the decimal point for each currency (2 for the majority of currencies). Defaults to 0.
+	// Not supported for payments in Telegram Stars (https://t.me/BotNews/90).
 	MaxTipAmount int `json:"max_tip_amount,omitempty"`
 
 	// SuggestedTipAmounts - Optional. A JSON-serialized array of suggested amounts of tips in the smallest
@@ -3744,26 +4064,32 @@ type CreateInvoiceLinkParams struct {
 	// PhotoHeight - Optional. Photo height
 	PhotoHeight int `json:"photo_height,omitempty"`
 
-	// NeedName - Optional. Pass True if you require the user's full name to complete the order
+	// NeedName - Optional. Pass True if you require the user's full name to complete the order. Ignored for
+	// payments in Telegram Stars (https://t.me/BotNews/90).
 	NeedName bool `json:"need_name,omitempty"`
 
-	// NeedPhoneNumber - Optional. Pass True if you require the user's phone number to complete the order
+	// NeedPhoneNumber - Optional. Pass True if you require the user's phone number to complete the order.
+	// Ignored for payments in Telegram Stars (https://t.me/BotNews/90).
 	NeedPhoneNumber bool `json:"need_phone_number,omitempty"`
 
-	// NeedEmail - Optional. Pass True if you require the user's email address to complete the order
+	// NeedEmail - Optional. Pass True if you require the user's email address to complete the order. Ignored
+	// for payments in Telegram Stars (https://t.me/BotNews/90).
 	NeedEmail bool `json:"need_email,omitempty"`
 
 	// NeedShippingAddress - Optional. Pass True if you require the user's shipping address to complete the
-	// order
+	// order. Ignored for payments in Telegram Stars (https://t.me/BotNews/90).
 	NeedShippingAddress bool `json:"need_shipping_address,omitempty"`
 
-	// SendPhoneNumberToProvider - Optional. Pass True if the user's phone number should be sent to the provider
+	// SendPhoneNumberToProvider - Optional. Pass True if the user's phone number should be sent to the
+	// provider. Ignored for payments in Telegram Stars (https://t.me/BotNews/90).
 	SendPhoneNumberToProvider bool `json:"send_phone_number_to_provider,omitempty"`
 
-	// SendEmailToProvider - Optional. Pass True if the user's email address should be sent to the provider
+	// SendEmailToProvider - Optional. Pass True if the user's email address should be sent to the provider.
+	// Ignored for payments in Telegram Stars (https://t.me/BotNews/90).
 	SendEmailToProvider bool `json:"send_email_to_provider,omitempty"`
 
-	// IsFlexible - Optional. Pass True if the final price depends on the shipping method
+	// IsFlexible - Optional. Pass True if the final price depends on the shipping method. Ignored for payments
+	// in Telegram Stars (https://t.me/BotNews/90).
 	IsFlexible bool `json:"is_flexible,omitempty"`
 }
 
@@ -3839,6 +4165,26 @@ func (b *Bot) AnswerPreCheckoutQuery(params *AnswerPreCheckoutQueryParams) error
 	return nil
 }
 
+// RefundStarPaymentParams - Represents parameters of refundStarPayment method.
+type RefundStarPaymentParams struct {
+	// UserID - Identifier of the user whose payment will be refunded
+	UserID int64 `json:"user_id"`
+
+	// TelegramPaymentChargeID - Telegram payment identifier
+	TelegramPaymentChargeID string `json:"telegram_payment_charge_id"`
+}
+
+// RefundStarPayment - Refunds a successful payment in Telegram Stars (https://t.me/BotNews/90). Returns True
+// on success.
+func (b *Bot) RefundStarPayment(params *RefundStarPaymentParams) error {
+	err := b.performRequest("refundStarPayment", params)
+	if err != nil {
+		return fmt.Errorf("telego: refundStarPayment(): %w", err)
+	}
+
+	return nil
+}
+
 // SetPassportDataErrorsParams - Represents parameters of setPassportDataErrors method.
 type SetPassportDataErrorsParams struct {
 	// UserID - User identifier
@@ -3866,6 +4212,10 @@ func (b *Bot) SetPassportDataErrors(params *SetPassportDataErrorsParams) error {
 
 // SendGameParams - Represents parameters of sendGame method.
 type SendGameParams struct {
+	// BusinessConnectionID - Optional. Unique identifier of the business connection on behalf of which the
+	// message will be sent
+	BusinessConnectionID string `json:"business_connection_id,omitempty"`
+
 	// ChatID - Unique identifier for the target chat
 	// Note: Should be int64 not ChatID according to documentation (https://core.telegram.org/bots/api#sendgame)
 	ChatID int64 `json:"chat_id"`
@@ -3885,12 +4235,12 @@ type SendGameParams struct {
 	// ProtectContent - Optional. Protects the contents of the sent message from forwarding and saving
 	ProtectContent bool `json:"protect_content,omitempty"`
 
-	// ReplyToMessageID - Optional. If the message is a reply, ID of the original message
-	ReplyToMessageID int `json:"reply_to_message_id,omitempty"`
+	// MessageEffectID - Optional. Unique identifier of the message effect to be added to the message; for
+	// private chats only
+	MessageEffectID string `json:"message_effect_id,omitempty"`
 
-	// AllowSendingWithoutReply - Optional. Pass True if the message should be sent even if the specified
-	// replied-to message is not found
-	AllowSendingWithoutReply bool `json:"allow_sending_without_reply,omitempty"`
+	// ReplyParameters - Optional. Description of the message to reply to
+	ReplyParameters *ReplyParameters `json:"reply_parameters,omitempty"`
 
 	// ReplyMarkup - Optional. A JSON-serialized object for an inline keyboard
 	// (https://core.telegram.org/bots/features#inline-keyboards). If empty, one 'Play game_title' button will be

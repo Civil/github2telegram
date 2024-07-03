@@ -53,7 +53,7 @@ type XMLPullParser struct {
 	// Document State
 	Spaces      map[string]string
 	SpacesStack []map[string]string
-	BaseStack    urlStack
+	BaseStack   urlStack
 
 	// Token State
 	Depth int
@@ -240,7 +240,17 @@ func (p *XMLPullParser) DecodeElement(v interface{}) error {
 	p.Depth--
 	p.Name = name
 	p.token = nil
-	p.popBase()
+
+	// if the token we decoded had an xml:base attribute, we need to pop it
+	// from the stack
+	// Note: this means it is up to the caller of DecodeElement to save the curent xml:base
+	// before calling DecodeElement if it needs to resolve relative URLs in `v`
+	for _, attr := range startToken.Attr {
+		if attr.Name.Space == xmlNSURI && attr.Name.Local == "base" {
+			p.popBase()
+			break
+		}
+	}
 	return nil
 }
 

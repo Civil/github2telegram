@@ -32,8 +32,8 @@ all documentation from Telegram.
 
 For more detailed documentation, see docs at [telego.pixelbox.dev](https://telego.pixelbox.dev).
 
-> Note: Telego uses [fasthttp](https://github.com/valyala/fasthttp) instead of `net/http` by default (can be changed)
-> and [go-json](https://github.com/goccy/go-json) instead of `encoding/json`.
+> Note: Telego uses [fasthttp](https://github.com/valyala/fasthttp) instead of `net/http`
+> and [go-json](https://github.com/goccy/go-json) instead of `encoding/json` by default (both can be changed).
 
 ### :clipboard: Table Of Content
 
@@ -47,6 +47,7 @@ For more detailed documentation, see docs at [telego.pixelbox.dev](https://teleg
     - [:soap: Utility methods](#soap-utility-methods)
     - [:mechanical_arm: Helper `With...` methods](#mechanical_arm-helper-with-methods)
     - [:sun_behind_large_cloud: Bot handlers](#sun_behind_large_cloud-bot-handlers)
+    - [:gear: Build configuration](#gear-build-configuration)
 - [:art: Contribution](#art-contribution)
 - [:star: Stargazers over time](#star-stargazers-over-time)
 - [:closed_lock_with_key: License](#closed_lock_with_key-license)
@@ -58,7 +59,7 @@ For more detailed documentation, see docs at [telego.pixelbox.dev](https://teleg
 How to get the library:
 
 ```shell
-go get -u github.com/mymmrac/telego
+go get github.com/mymmrac/telego
 ```
 
 Make sure you get the latest version to have all new features & fixes.
@@ -599,6 +600,20 @@ func main() {
 
 ```
 
+### :gear: Build configuration
+
+[▲ Go Up ▲](#telego--go-telegram-bot-api)
+
+Telego supports multiple build configurations via Go's build tags
+(right now only to change JSON encoding/decoding library):
+
+- No tags - use [goccy/go-json](https://github.com/goccy/go-json)
+- `sonic` - use [bytedance/sonic](https://github.com/bytedance/sonic)
+- `stdjson` - use `encoding/json`
+
+> Note: Use `sonic` only on supported platforms as it has its own limitations, more
+> [here](https://github.com/bytedance/sonic?tab=readme-ov-file#requirement).
+
 ## :art: Contribution
 
 Contribution guidelines listed [here](docs/CONTRIBUTING.md).
@@ -615,6 +630,6 @@ Telego is distributed under [MIT licence](LICENSE).
 
 [TelegramBotAPI]: https://core.telegram.org/bots/api
 
-[TelegramVersionBadge]: https://img.shields.io/static/v1?label=Supported%20Telegram%20Bot%20API&color=29a1d4&logo=telegram&message=v6.9
+[TelegramVersionBadge]: https://img.shields.io/static/v1?label=Supported%20Telegram%20Bot%20API&color=29a1d4&logo=telegram&message=v7.4
 
-[TelegramLastVersion]: https://core.telegram.org/bots/api#september-22-2023
+[TelegramLastVersion]: https://core.telegram.org/bots/api#may-28-2024

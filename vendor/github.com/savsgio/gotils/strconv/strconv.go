@@ -1,29 +1,17 @@
-//go:build !go1.20
-// +build !go1.20
+//go:build go1.20 || go1.21 || go1.22
+// +build go1.20 go1.21 go1.22
 
 package strconv
 
-import (
-	"reflect"
-	"unsafe"
-)
+import "unsafe"
 
 // B2S converts byte slice to a string without memory allocation.
 // See https://groups.google.com/forum/#!msg/Golang-Nuts/ENgbUzYvCuU/90yGx7GUAgAJ .
 func B2S(b []byte) string {
-	return *(*string)(unsafe.Pointer(&b))
+	return unsafe.String(unsafe.SliceData(b), len(b))
 }
 
 // S2B converts string to a byte slice without memory allocation.
-//
-// Note it may break if string and/or slice header will change
-// in the future go versions.
-func S2B(s string) (b []byte) {
-	sh := (*reflect.StringHeader)(unsafe.Pointer(&s))
-	bh := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-	bh.Data = sh.Data
-	bh.Cap = sh.Len
-	bh.Len = sh.Len
-
-	return b
+func S2B(s string) []byte {
+	return unsafe.Slice(unsafe.StringData(s), len(s))
 }

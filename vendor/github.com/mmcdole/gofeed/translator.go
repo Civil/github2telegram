@@ -1,15 +1,18 @@
 package gofeed
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/mmcdole/gofeed/atom"
 	ext "github.com/mmcdole/gofeed/extensions"
 	"github.com/mmcdole/gofeed/internal/shared"
 	"github.com/mmcdole/gofeed/json"
 	"github.com/mmcdole/gofeed/rss"
+	"golang.org/x/net/html"
 )
 
 // Translator converts a particular feed (atom.Feed or rss.Feed of json.Feed)
@@ -92,7 +95,12 @@ func (t *DefaultRSSTranslator) translateFeedTitle(rss *rss.Feed) (title string) 
 }
 
 func (t *DefaultRSSTranslator) translateFeedDescription(rss *rss.Feed) (desc string) {
-	return rss.Description
+	if rss.Description != "" {
+		desc = rss.Description
+	} else if rss.ITunesExt != nil && rss.ITunesExt.Summary != "" {
+		desc = rss.ITunesExt.Summary
+	}
+	return
 }
 
 func (t *DefaultRSSTranslator) translateFeedLink(rss *rss.Feed) (link string) {
@@ -213,16 +221,26 @@ func (t *DefaultRSSTranslator) translateFeedLanguage(rss *rss.Feed) (language st
 	return
 }
 
-func (t *DefaultRSSTranslator) translateFeedImage(rss *rss.Feed) (image *Image) {
+func (t *DefaultRSSTranslator) translateFeedImage(rss *rss.Feed) *Image {
 	if rss.Image != nil {
-		image = &Image{}
-		image.Title = rss.Image.Title
-		image.URL = rss.Image.URL
-	} else if rss.ITunesExt != nil && rss.ITunesExt.Image != "" {
-		image = &Image{}
-		image.URL = rss.ITunesExt.Image
+		return &Image{
+			Title: rss.Image.Title,
+			URL:   rss.Image.URL,
+		}
 	}
-	return
+	if rss.ITunesExt != nil && rss.ITunesExt.Image != "" {
+		return &Image{URL: rss.ITunesExt.Image}
+	}
+	if media, ok := rss.Extensions["media"]; ok {
+		if content, ok := media["content"]; ok {
+			for _, c := range content {
+				if strings.HasPrefix(c.Attrs["type"], "image/") || c.Attrs["medium"] == "image" {
+					return &Image{URL: c.Attrs["url"]}
+				}
+			}
+		}
+	}
+	return firstImageFromHtmlDocument(rss.Description)
 }
 
 func (t *DefaultRSSTranslator) translateFeedCopyright(rss *rss.Feed) (rights string) {
@@ -248,9 +266,7 @@ func (t *DefaultRSSTranslator) translateFeedCategories(rss *rss.Feed) (categorie
 
 	if rss.ITunesExt != nil && rss.ITunesExt.Keywords != "" {
 		keywords := strings.Split(rss.ITunesExt.Keywords, ",")
-		for _, k := range keywords {
-			cats = append(cats, k)
-		}
+		cats = append(cats, keywords...)
 	}
 
 	if rss.ITunesExt != nil && rss.ITunesExt.Categories != nil {
@@ -263,9 +279,7 @@ func (t *DefaultRSSTranslator) translateFeedCategories(rss *rss.Feed) (categorie
 	}
 
 	if rss.DublinCoreExt != nil && rss.DublinCoreExt.Subject != nil {
-		for _, c := range rss.DublinCoreExt.Subject {
-			cats = append(cats, c)
-		}
+		cats = append(cats, rss.DublinCoreExt.Subject...)
 	}
 
 	if len(cats) > 0 {
@@ -297,6 +311,8 @@ func (t *DefaultRSSTranslator) translateItemDescription(rssItem *rss.Item) (desc
 		desc = rssItem.Description
 	} else if rssItem.DublinCoreExt != nil && rssItem.DublinCoreExt.Description != nil {
 		desc = t.firstEntry(rssItem.DublinCoreExt.Description)
+	} else if rssItem.ITunesExt != nil && rssItem.ITunesExt.Summary != "" {
+		desc = rssItem.ITunesExt.Summary
 	}
 	return
 }
@@ -397,12 +413,47 @@ func (t *DefaultRSSTranslator) translateItemGUID(rssItem *rss.Item) (guid string
 	return
 }
 
-func (t *DefaultRSSTranslator) translateItemImage(rssItem *rss.Item) (image *Image) {
+func (t *DefaultRSSTranslator) translateItemImage(rssItem *rss.Item) *Image {
 	if rssItem.ITunesExt != nil && rssItem.ITunesExt.Image != "" {
-		image = &Image{}
-		image.URL = rssItem.ITunesExt.Image
+		return &Image{URL: rssItem.ITunesExt.Image}
 	}
-	return
+	if media, ok := rssItem.Extensions["media"]; ok {
+		if content, ok := media["content"]; ok {
+			for _, c := range content {
+				if strings.Contains(c.Attrs["type"], "image") || strings.Contains(c.Attrs["medium"], "image") {
+					return &Image{URL: c.Attrs["url"]}
+				}
+			}
+		}
+	}
+	for _, enc := range rssItem.Enclosures {
+		if strings.HasPrefix(enc.Type, "image/") {
+			return &Image{URL: enc.URL}
+		}
+	}
+	if img := firstImageFromHtmlDocument(rssItem.Content); img != nil {
+		return img
+	}
+	if img := firstImageFromHtmlDocument(rssItem.Description); img != nil {
+		return img
+	}
+	return nil
+}
+
+func firstImageFromHtmlDocument(document string) *Image {
+	if doc, err := html.Parse(bytes.NewBufferString(document)); err == nil {
+		doc := goquery.NewDocumentFromNode(doc)
+		for _, node := range doc.FindMatcher(goquery.Single("img[src]")).Nodes {
+			for _, attr := range node.Attr {
+				if attr.Key == "src" {
+					return &Image{
+						URL: attr.Val,
+					}
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (t *DefaultRSSTranslator) translateItemCategories(rssItem *rss.Item) (categories []string) {
@@ -415,15 +466,11 @@ func (t *DefaultRSSTranslator) translateItemCategories(rssItem *rss.Item) (categ
 
 	if rssItem.ITunesExt != nil && rssItem.ITunesExt.Keywords != "" {
 		keywords := strings.Split(rssItem.ITunesExt.Keywords, ",")
-		for _, k := range keywords {
-			cats = append(cats, k)
-		}
+		cats = append(cats, keywords...)
 	}
 
 	if rssItem.DublinCoreExt != nil && rssItem.DublinCoreExt.Subject != nil {
-		for _, c := range rssItem.DublinCoreExt.Subject {
-			cats = append(cats, c)
-		}
+		cats = append(cats, rssItem.DublinCoreExt.Subject...)
 	}
 
 	if len(cats) > 0 {
@@ -614,6 +661,10 @@ func (t *DefaultAtomTranslator) translateFeedImage(atom *atom.Feed) (image *Imag
 		feedImage := Image{}
 		feedImage.URL = atom.Logo
 		image = &feedImage
+	} else if atom.Icon != "" {
+		feedImage := Image{}
+		feedImage.URL = atom.Icon
+		image = &feedImage
 	}
 	return
 }
@@ -642,7 +693,11 @@ func (t *DefaultAtomTranslator) translateFeedCategories(atom *atom.Feed) (catego
 	if atom.Categories != nil {
 		categories = []string{}
 		for _, c := range atom.Categories {
-			categories = append(categories, c.Term)
+			if c.Label != "" {
+				categories = append(categories, c.Label)
+			} else {
+				categories = append(categories, c.Term)
+			}
 		}
 	}
 	return
@@ -747,7 +802,11 @@ func (t *DefaultAtomTranslator) translateItemCategories(entry *atom.Entry) (cate
 	if entry.Categories != nil {
 		categories = []string{}
 		for _, c := range entry.Categories {
-			categories = append(categories, c.Term)
+			if c.Label != "" {
+				categories = append(categories, c.Label)
+			} else {
+				categories = append(categories, c.Term)
+			}
 		}
 	}
 	return

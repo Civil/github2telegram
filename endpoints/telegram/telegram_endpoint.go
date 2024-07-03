@@ -156,7 +156,7 @@ func InitializeTelegramEndpoint(token string, exitChan <-chan struct{}, database
 	e.commands = map[string]handlerWithDescription{
 		"/new": {
 			f: e.handlerNew,
-			description: "```/new repo filter\\_name filter_regexp``` \\-\\- creates new available subscription" + `
+			description: "`/new repo filter\\_name filter_regexp` \\-\\- creates new available subscription" + `
 
 Example:
   ` + "`/new lomik/go\\-carbon all ^V`" + `
@@ -335,7 +335,10 @@ func (e *TelegramEndpoint) sendMessage(chatID int64, messageID int, message stri
 		message,
 	).WithParseMode(telego.ModeMarkdownV2)
 	if messageID != 0 {
-		msg = msg.WithReplyToMessageID(messageID)
+		replyParams := &telego.ReplyParameters{
+			MessageID: messageID,
+		}
+		msg = msg.WithReplyParameters(replyParams)
 	}
 
 	_, err := e.api.SendMessage(msg)
@@ -354,7 +357,10 @@ func (e *TelegramEndpoint) sendRawMessage(chatID int64, messageID int, message s
 		message,
 	)
 	if messageID != 0 {
-		msg = msg.WithReplyToMessageID(messageID)
+		replyParams := &telego.ReplyParameters{
+			MessageID: messageID,
+		}
+		msg = msg.WithReplyParameters(replyParams)
 	}
 
 	_, err := e.api.SendMessage(msg)
@@ -498,7 +504,7 @@ func (e *TelegramEndpoint) handlerNew(tokens []string, update *telego.Update) er
 
 	feeds.UpdateFeeds([]*feeds.Feed{feed})
 
-	return e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, "done")
+	return e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, fmt.Sprintf("new filter has been created, to subscribe it use `/subscribe %s %s` command", repo, name))
 }
 
 func (e *TelegramEndpoint) handlerForceProcess(tokens []string, update *telego.Update) error {
@@ -625,16 +631,35 @@ func (e *TelegramEndpoint) unsubscribe(logger *zap.Logger, chatID int64, url str
 }
 
 func (e *TelegramEndpoint) handlerList(tokens []string, update *telego.Update) error {
-	response := "Configured feeds:\n"
+	responses := make([]string, 0, 4)
+	response := ""
+	feedsPerMessage := 50
+	idx := 0
 	configs.Config.RLock()
 	for _, feed := range configs.Config.FeedsConfig {
 		for _, feedFilter := range feed.Filters {
 			response = response + "`" + feed.Repo + "`: `" + feedFilter.Name + "`\n"
+			idx++
+			if idx == feedsPerMessage {
+				responses = append(responses, response)
+				response = ""
+				idx = 0
+			}
 		}
 	}
+	responses = append(responses, response)
 	configs.Config.RUnlock()
 
-	return e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, response)
+	var err error
+	for i, response := range responses {
+		response = fmt.Sprintf("Configured feeds %v/%v:\n%s", i+1, len(responses), response)
+		err2 := e.sendMessage(update.Message.Chat.ID, update.Message.MessageID, response)
+		if err2 != nil {
+			e.logger.Error("error sending list", zap.Error(err))
+			err = err2
+		}
+	}
+	return err
 }
 
 func (e *TelegramEndpoint) handlerHelp(_ []string, update *telego.Update) error {
@@ -656,6 +681,7 @@ func (e *TelegramEndpoint) handlerHelp(_ []string, update *telego.Update) error 
 func (e *TelegramEndpoint) checkUnrecoverableSendError(err error) bool {
 	if strings.Contains(err.Error(), "chat not found") ||
 		strings.Contains(err.Error(), "bot was kicked") ||
+		strings.Contains(err.Error(), "the group chat was deleted") ||
 		strings.Contains(err.Error(), "bot was blocked by the user") ||
 		strings.Contains(err.Error(), "not enough rights to send text messages") {
 		return false

@@ -15,6 +15,7 @@ tasks:
       - task: generate
       - task: lint
       - task: test
+      - task: build:lib
       - task: build:examples
 
   lint:
@@ -43,6 +44,28 @@ tasks:
     generates:
       - bin/cover.out
 
+  test:all-tags:
+    desc: "Run tests for all tags"
+    cmds:
+      - mkdir -p bin
+      - |
+        go test -coverprofile bin/cover.out \
+          $(go list ./... | grep -v /examples | grep -v /internal | grep -v /mock)
+      - |
+        go test -tags sonic -coverprofile bin/cover-sonic.out \
+          $(go list ./... | grep -v /examples | grep -v /internal | grep -v /mock)
+      - |
+        go test -tags stdjson -coverprofile bin/cover-stdjson.out \
+          $(go list ./... | grep -v /examples | grep -v /internal | grep -v /mock)
+    sources:
+      - ./**/*.go
+      - go.mod
+      - go.sum
+    generates:
+      - bin/cover.out
+      - bin/cover-sonic.out
+      - bin/cover-stdjson.out
+
   test:cover:
     desc: "Run tests & show coverage"
     deps:
@@ -60,11 +83,23 @@ tasks:
     cmds:
       - go test -bench=. -benchtime=10s -benchmem
 
+  build:lib:
+    desc: "Build library"
+    cmds:
+      - go build -o ./bin ./...
+
   build:examples:
     desc: "Build examples"
     dir: ./examples
     cmds:
       - go build -o ../bin/ ./...
+
+  update:dependencies:
+    desc: "Update dependencies"
+    cmds:
+      - go mod tidy
+      - go list -f "{{if not (or .Main .Indirect)}}{{.Path}}{{end}}" -m all | xargs go get
+      - go mod tidy
 
   generate:
     desc: "Generate (used for mock generation)"

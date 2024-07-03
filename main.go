@@ -114,14 +114,18 @@ func main() {
 		)
 	}
 
+	logger.Debug("feedListDB Will Try to create", zap.Int("count", len(feedsListDB)))
+
 	feedsList := make([]*feeds.Feed, 0, len(feedsListDB))
 	for _, f := range feedsListDB {
 		f2, err := feeds.NewFeed(f.Repo, f.Filter, f.Name, f.MessagePattern, database)
 		if err != nil {
+			logger.Error("feedListDB Creation failed", zap.Error(err))
 			continue
 		}
 		feedsList = append(feedsList, f2)
 	}
+	logger.Debug("feedListDB Created", zap.Any("feeds", feedsListDB))
 
 	feeds.UpdateFeeds(feedsList)
 
