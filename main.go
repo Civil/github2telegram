@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"github.com/Civil/github2telegram/endpoints/telegram"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/Civil/github2telegram/configs"
 	"github.com/Civil/github2telegram/db"
-	"github.com/Civil/github2telegram/endpoints"
 	"github.com/Civil/github2telegram/feeds"
 	"github.com/lomik/zapwriter"
 	_ "github.com/mattn/go-sqlite3"
@@ -80,11 +80,14 @@ func main() {
 			zap.Any("endpoint_config", cfg),
 		)
 		if cfg.Type == "telegram" {
-			configs.Config.Senders[name], err = endpoints.InitializeTelegramEndpoint(cfg.Token, exitChan, database)
+			configs.Config.Senders[name], err = telegram.InitializeTelegramEndpoint(cfg.Token, exitChan, database,
+				telegram.WithListenAddress(cfg.WebhookListenAddress),
+				telegram.WithWebhookPath(cfg.WebhookPath),
+				telegram.WithWebhookURL(cfg.WebhookURL),
+			)
 			if err != nil {
 				logger.Fatal("Error initializing telegram endpoint",
 					zap.Error(err),
-					zap.Any("config", configs.Config),
 				)
 			}
 
@@ -102,9 +105,7 @@ func main() {
 		logger.Fatal("no endpoints initialized")
 	}
 
-	logger.Info("github2telegram initialized",
-		zap.Any("config", configs.Config),
-	)
+	logger.Info("github2telegram initialized")
 
 	feedsListDB, err := database.ListFeeds()
 	if err != nil {
@@ -113,14 +114,18 @@ func main() {
 		)
 	}
 
+	logger.Debug("feedListDB Will Try to create", zap.Int("count", len(feedsListDB)))
+
 	feedsList := make([]*feeds.Feed, 0, len(feedsListDB))
 	for _, f := range feedsListDB {
 		f2, err := feeds.NewFeed(f.Repo, f.Filter, f.Name, f.MessagePattern, database)
 		if err != nil {
+			logger.Error("feedListDB Creation failed", zap.Error(err))
 			continue
 		}
 		feedsList = append(feedsList, f2)
 	}
+	logger.Debug("feedListDB Created", zap.Any("feeds", feedsListDB))
 
 	feeds.UpdateFeeds(feedsList)
 

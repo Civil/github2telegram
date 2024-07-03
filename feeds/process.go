@@ -1,15 +1,17 @@
 package feeds
 
 import (
+	"math/rand"
 	"regexp"
+	"strings"
 	"time"
+
+	"github.com/Civil/github2telegram/types"
+
+	"github.com/pkg/errors"
 
 	"github.com/Civil/github2telegram/configs"
 	"github.com/Civil/github2telegram/db"
-	"github.com/pkg/errors"
-
-	"math/rand"
-	"strings"
 
 	"github.com/lomik/zapwriter"
 	"github.com/lunny/html2md"
@@ -100,6 +102,14 @@ func UpdateFeeds(feeds []*Feed) {
 		runningFeeds = append(runningFeeds, feed)
 		go func(f *Feed) {
 			f.ProcessFeed()
+			configs.Config.RLock()
+			defer configs.Config.RUnlock()
+			for i, rf := range runningFeeds {
+				if rf.Id == f.Id {
+					runningFeeds = append(runningFeeds[:i], runningFeeds[i+1:]...)
+					break
+				}
+			}
 		}(feed)
 	}
 }
@@ -184,25 +194,25 @@ func (f *Feed) processSingleItem(cfg *configs.FeedsConfig, url string, item *gof
 			logger.Debug("filter matched")
 			contentTruncated := false
 			var changeType UpdateType
-			var notification string
 
 			// check if last tag haven't changed
 			if item.Title == cfg.Filters[i].LastTag {
 				changeType = DescriptionChange
-				notification = cfg.Repo + " description changed: " + item.Title + "\nLink: " + item.Link
+
 			} else {
 				changeType = NewRelease
-				notification = cfg.Repo + " tagged: " + item.Title + "\nLink: " + item.Link
 			}
+
+			notification := types.MdReplacer.Replace(cfg.Repo) + changeType.String() + types.MdReplacer.Replace(item.Title) + "\nLink: " + types.MdReplacer.Replace(item.Link)
 
 			content := html2md.Convert(item.Content)
 			if len(content) > 250 {
-				content = content[:250] + "..."
+				content = content[:250] + "\\.\\.\\."
 				contentTruncated = true
 			}
 			content = strings.Replace(content, "```", "", 1)
 
-			notification += "\nRelease notes:\n```\n" + content + "\n```"
+			notification += "\nRelease notes:\n```\n" + content + "\n```\n"
 			if contentTruncated {
 				notification += "[More](" + item.Link + ")"
 			}
@@ -286,6 +296,12 @@ func (f *Feed) ForceProcess() {
 			zap.Time("now", t0),
 			zap.Error(err),
 		)
+		if strings.Contains(err.Error(), "404 Not Found") {
+			err = f.db.RemoveFeed(f.Name, f.Repo, f.Filter, f.MessagePattern)
+			if err != nil {
+				f.logger.Error("error removing feed", zap.Error(err))
+			}
+		}
 		return
 	}
 
@@ -358,6 +374,15 @@ func (f *Feed) ProcessFeed() {
 				zap.Time("now", t0),
 				zap.Error(err),
 			)
+			if strings.Contains(err.Error(), "404 Not Found") {
+//				err = f.db.RemoveFeed(f.Name, f.Repo, f.Filter, f.MessagePattern)
+//				if err != nil {
+//					f.logger.Error("error removing feed", zap.Error(err))
+//					continue
+//				}
+				f.logger.Info("feed should be removed")
+//				return
+			}
 			continue
 		}
 

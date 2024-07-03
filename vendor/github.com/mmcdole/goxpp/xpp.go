@@ -5,11 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 )
 
 type XMLEventType int
 type CharsetReader func(charset string, input io.Reader) (io.Reader, error)
+
+const xmlNSURI = "http://www.w3.org/XML/1998/namespace"
 
 const (
 	StartDocument XMLEventType = iota
@@ -24,10 +27,33 @@ const (
 	// TODO: CDSECT ?
 )
 
+type urlStack []*url.URL
+
+func (s *urlStack) push(u *url.URL) {
+	*s = append([]*url.URL{u}, *s...)
+}
+
+func (s *urlStack) pop() *url.URL {
+	if s == nil || len(*s) == 0 {
+		return nil
+	}
+	var top *url.URL
+	top, *s = (*s)[0], (*s)[1:]
+	return top
+}
+
+func (s *urlStack) Top() *url.URL {
+	if s == nil || len(*s) == 0 {
+		return nil
+	}
+	return (*s)[0]
+}
+
 type XMLPullParser struct {
 	// Document State
 	Spaces      map[string]string
 	SpacesStack []map[string]string
+	BaseStack   urlStack
 
 	// Token State
 	Depth int
@@ -214,6 +240,17 @@ func (p *XMLPullParser) DecodeElement(v interface{}) error {
 	p.Depth--
 	p.Name = name
 	p.token = nil
+
+	// if the token we decoded had an xml:base attribute, we need to pop it
+	// from the stack
+	// Note: this means it is up to the caller of DecodeElement to save the curent xml:base
+	// before calling DecodeElement if it needs to resolve relative URLs in `v`
+	for _, attr := range startToken.Attr {
+		if attr.Name.Space == xmlNSURI && attr.Name.Local == "base" {
+			p.popBase()
+			break
+		}
+	}
 	return nil
 }
 
@@ -263,6 +300,26 @@ func (p *XMLPullParser) EventType(t xml.Token) (event XMLEventType) {
 	return
 }
 
+// resolve the given string as a URL relative to current xml:base
+func (p *XMLPullParser) XmlBaseResolveUrl(u string) (*url.URL, error) {
+	curr := p.BaseStack.Top()
+	if curr == nil {
+		return nil, nil
+	}
+
+	relURL, err := url.Parse(u)
+	if err != nil {
+		return nil, err
+	}
+	if curr.Path != "" && u != "" && curr.Path[len(curr.Path)-1] != '/' {
+		// There's no reason someone would use a path in xml:base if they
+		// didn't mean for it to be a directory
+		curr.Path = curr.Path + "/"
+	}
+	absURL := curr.ResolveReference(relURL)
+	return absURL, nil
+}
+
 func (p *XMLPullParser) processToken(t xml.Token) {
 	switch tt := t.(type) {
 	case xml.StartElement:
@@ -286,6 +343,7 @@ func (p *XMLPullParser) processStartToken(t xml.StartElement) {
 	p.Name = t.Name.Local
 	p.Space = t.Name.Space
 	p.trackNamespaces(t)
+	p.pushBase()
 }
 
 func (p *XMLPullParser) processEndToken(t xml.EndElement) {
@@ -297,6 +355,7 @@ func (p *XMLPullParser) processEndToken(t xml.EndElement) {
 		p.Spaces = p.SpacesStack[len(p.SpacesStack)-1]
 	}
 	p.Name = t.Name.Local
+	p.popBase()
 }
 
 func (p *XMLPullParser) processCharDataToken(t xml.CharData) {
@@ -339,4 +398,41 @@ func (p *XMLPullParser) trackNamespaces(t xml.StartElement) {
 	}
 	p.Spaces = newSpace
 	p.SpacesStack = append(p.SpacesStack, newSpace)
+}
+
+// returns the popped base URL
+func (p *XMLPullParser) popBase() string {
+	url := p.BaseStack.pop()
+	if url != nil {
+		return url.String()
+	}
+	return ""
+}
+
+// Searches current attributes for xml:base and updates the urlStack
+func (p *XMLPullParser) pushBase() error {
+	var base string
+	// search list of attrs for "xml:base"
+	for _, attr := range p.Attrs {
+		if attr.Name.Local == "base" && attr.Name.Space == xmlNSURI {
+			base = attr.Value
+			break
+		}
+	}
+	if base == "" {
+		// no base attribute found
+		return nil
+	}
+
+	newURL, err := url.Parse(base)
+	if err != nil {
+		return err
+	}
+
+	topURL := p.BaseStack.Top()
+	if topURL != nil {
+		newURL = topURL.ResolveReference(newURL)
+	}
+	p.BaseStack.push(newURL)
+	return nil
 }

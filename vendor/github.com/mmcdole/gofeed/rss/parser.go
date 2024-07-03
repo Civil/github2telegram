@@ -5,9 +5,9 @@ import (
 	"io"
 	"strings"
 
-	"github.com/mmcdole/gofeed/extensions"
+	ext "github.com/mmcdole/gofeed/extensions"
 	"github.com/mmcdole/gofeed/internal/shared"
-	"github.com/mmcdole/goxpp"
+	xpp "github.com/mmcdole/goxpp"
 )
 
 // Parser is a RSS Parser
@@ -115,7 +115,6 @@ func (rp *Parser) parseRoot(p *xpp.XMLPullParser) (*Feed, error) {
 }
 
 func (rp *Parser) parseChannel(p *xpp.XMLPullParser) (rss *Feed, err error) {
-
 	if err = p.Expect(xpp.StartTag, "channel"); err != nil {
 		return nil, err
 	}
@@ -125,6 +124,7 @@ func (rp *Parser) parseChannel(p *xpp.XMLPullParser) (rss *Feed, err error) {
 
 	extensions := ext.Extensions{}
 	categories := []*Category{}
+	links := []string{}
 
 	for {
 		tok, err := shared.NextTag(p)
@@ -159,11 +159,12 @@ func (rp *Parser) parseChannel(p *xpp.XMLPullParser) (rss *Feed, err error) {
 				}
 				rss.Description = result
 			} else if name == "link" {
-				result, err := shared.ParseText(p)
+				result, err := rp.parseLink(p)
 				if err != nil {
 					return nil, err
 				}
 				rss.Link = result
+				links = append(links, result)
 			} else if name == "language" {
 				result, err := shared.ParseText(p)
 				if err != nil {
@@ -292,6 +293,10 @@ func (rp *Parser) parseChannel(p *xpp.XMLPullParser) (rss *Feed, err error) {
 		rss.Categories = categories
 	}
 
+	if len(links) > 0 {
+		rss.Links = links
+	}
+
 	if len(extensions) > 0 {
 		rss.Extensions = extensions
 
@@ -308,7 +313,6 @@ func (rp *Parser) parseChannel(p *xpp.XMLPullParser) (rss *Feed, err error) {
 }
 
 func (rp *Parser) parseItem(p *xpp.XMLPullParser) (item *Item, err error) {
-
 	if err = p.Expect(xpp.StartTag, "item"); err != nil {
 		return nil, err
 	}
@@ -316,6 +320,8 @@ func (rp *Parser) parseItem(p *xpp.XMLPullParser) (item *Item, err error) {
 	item = &Item{}
 	extensions := ext.Extensions{}
 	categories := []*Category{}
+	enclosures := []*Enclosure{}
+	links := []string{}
 
 	for {
 		tok, err := shared.NextTag(p)
@@ -351,7 +357,8 @@ func (rp *Parser) parseItem(p *xpp.XMLPullParser) (item *Item, err error) {
 				item.Description = result
 			} else if name == "encoded" {
 				space := strings.TrimSpace(p.Space)
-				if prefix, ok := p.Spaces[space]; ok && prefix == "content" {
+				prefix := shared.PrefixForNamespace(space, p)
+				if prefix == "content" {
 					result, err := shared.ParseText(p)
 					if err != nil {
 						return nil, err
@@ -359,11 +366,12 @@ func (rp *Parser) parseItem(p *xpp.XMLPullParser) (item *Item, err error) {
 					item.Content = result
 				}
 			} else if name == "link" {
-				result, err := shared.ParseText(p)
+				result, err := rp.parseLink(p)
 				if err != nil {
 					return nil, err
 				}
 				item.Link = result
+				links = append(links, result)
 			} else if name == "author" {
 				result, err := shared.ParseText(p)
 				if err != nil {
@@ -399,6 +407,7 @@ func (rp *Parser) parseItem(p *xpp.XMLPullParser) (item *Item, err error) {
 					return nil, err
 				}
 				item.Enclosure = result
+				enclosures = append(enclosures, result)
 			} else if name == "guid" {
 				result, err := rp.parseGUID(p)
 				if err != nil {
@@ -412,14 +421,28 @@ func (rp *Parser) parseItem(p *xpp.XMLPullParser) (item *Item, err error) {
 				}
 				categories = append(categories, result)
 			} else {
-				// Skip any elements not part of the item spec
-				p.Skip()
+				result, err := shared.ParseText(p)
+				if err != nil {
+					continue
+				}
+				if item.Custom == nil {
+					item.Custom = make(map[string]string, 0)
+				}
+				item.Custom[p.Name] = result
 			}
 		}
 	}
 
+	if len(enclosures) > 0 {
+		item.Enclosures = enclosures
+	}
+
 	if len(categories) > 0 {
 		item.Categories = categories
+	}
+
+	if len(links) > 0 {
+		item.Links = links
 	}
 
 	if len(extensions) > 0 {
@@ -439,6 +462,18 @@ func (rp *Parser) parseItem(p *xpp.XMLPullParser) (item *Item, err error) {
 	}
 
 	return item, nil
+}
+
+func (rp *Parser) parseLink(p *xpp.XMLPullParser) (url string, err error) {
+	href := p.Attribute("href")
+	url, err = shared.ParseText(p)
+	if err != nil {
+		return
+	}
+	if url == "" && href != "" {
+		url = href
+	}
+	return url, err
 }
 
 func (rp *Parser) parseSource(p *xpp.XMLPullParser) (source *Source, err error) {
@@ -471,14 +506,16 @@ func (rp *Parser) parseEnclosure(p *xpp.XMLPullParser) (enclosure *Enclosure, er
 	enclosure.Length = p.Attribute("length")
 	enclosure.Type = p.Attribute("type")
 
-	// Ignore any enclosure text
-	_, err = p.NextText()
-	if err != nil {
-		return enclosure, err
-	}
+	// Ignore any enclosure tag
+	for {
+		_, err := p.Next()
+		if err != nil {
+			return enclosure, err
+		}
 
-	if err = p.Expect(xpp.EndTag, "enclosure"); err != nil {
-		return nil, err
+		if p.Event == xpp.EndTag && p.Name == "enclosure" {
+			break
+		}
 	}
 
 	return enclosure, nil
@@ -575,7 +612,6 @@ func (rp *Parser) parseGUID(p *xpp.XMLPullParser) (guid *GUID, err error) {
 }
 
 func (rp *Parser) parseCategory(p *xpp.XMLPullParser) (cat *Category, err error) {
-
 	if err = p.Expect(xpp.StartTag, "category"); err != nil {
 		return nil, err
 	}

@@ -1,6 +1,7 @@
 package db
 
 import (
+	"github.com/Civil/github2telegram/types"
 	"time"
 )
 
@@ -12,16 +13,24 @@ type Database interface {
 	AddFeed(name, repo, filter, messagePattern string) (int, error)
 	GetFeed(name string) (*Feed, error)
 	ListFeeds() ([]*Feed, error)
+	RemoveFeed(name, repo, filter, messagePattern string) error
 
 	// Subscriptions
 	AddSubscribtion(endpoint, url, filter string, chatID int64) error
 	RemoveSubscribtion(endpoint, url, filter string, chatID int64) error
+
+	// Maintenance
+	UpdateChatID(oldChatID, newChatID int64) error
 
 	// Notification methods
 	GetNotificationMethods(url, filter string) ([]string, error)
 
 	// Endpoints
 	GetEndpointInfo(endpoint, url, filter string) ([]int64, error)
+
+	// Resend Queue
+	AddMessagesToResentQueue(messages []*types.NotificationMessage) error
+	GetMessagesFromResentQueue() ([]*types.NotificationMessage, error)
 }
 
 type Feed struct {

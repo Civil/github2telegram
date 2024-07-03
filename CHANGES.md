@@ -13,6 +13,11 @@ Changes
 
 CHANGELOG
 ---------
+**0.1.0**
+ - [Code] Upgrade all dependencies to their latest version
+ - [Code] Migrate to a different telegram bot library
+
+
 **0.0.2**
  - [Improvement] Improve logging, make it more consistent
  - [Improvement] Add basic validation for repo name for a `new` command

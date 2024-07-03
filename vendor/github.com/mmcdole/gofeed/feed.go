@@ -4,22 +4,26 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/mmcdole/gofeed/extensions"
+	ext "github.com/mmcdole/gofeed/extensions"
 )
 
 // Feed is the universal Feed type that atom.Feed
 // and rss.Feed gets translated to. It represents
 // a web feed.
+// Sorting with sort.Sort will order the Items by
+// oldest to newest publish time.
 type Feed struct {
 	Title           string                   `json:"title,omitempty"`
 	Description     string                   `json:"description,omitempty"`
 	Link            string                   `json:"link,omitempty"`
 	FeedLink        string                   `json:"feedLink,omitempty"`
+	Links           []string                 `json:"links,omitempty"`
 	Updated         string                   `json:"updated,omitempty"`
 	UpdatedParsed   *time.Time               `json:"updatedParsed,omitempty"`
 	Published       string                   `json:"published,omitempty"`
 	PublishedParsed *time.Time               `json:"publishedParsed,omitempty"`
-	Author          *Person                  `json:"author,omitempty"`
+	Author          *Person                  `json:"author,omitempty"` // Deprecated: Use feed.Authors instead
+	Authors         []*Person                `json:"authors,omitempty"`
 	Language        string                   `json:"language,omitempty"`
 	Image           *Image                   `json:"image,omitempty"`
 	Copyright       string                   `json:"copyright,omitempty"`
@@ -47,11 +51,13 @@ type Item struct {
 	Description     string                   `json:"description,omitempty"`
 	Content         string                   `json:"content,omitempty"`
 	Link            string                   `json:"link,omitempty"`
+	Links           []string                 `json:"links,omitempty"`
 	Updated         string                   `json:"updated,omitempty"`
 	UpdatedParsed   *time.Time               `json:"updatedParsed,omitempty"`
 	Published       string                   `json:"published,omitempty"`
 	PublishedParsed *time.Time               `json:"publishedParsed,omitempty"`
-	Author          *Person                  `json:"author,omitempty"`
+	Author          *Person                  `json:"author,omitempty"` // Deprecated: Use item.Authors instead
+	Authors         []*Person                `json:"authors,omitempty"`
 	GUID            string                   `json:"guid,omitempty"`
 	Image           *Image                   `json:"image,omitempty"`
 	Categories      []string                 `json:"categories,omitempty"`
@@ -81,4 +87,22 @@ type Enclosure struct {
 	URL    string `json:"url,omitempty"`
 	Length string `json:"length,omitempty"`
 	Type   string `json:"type,omitempty"`
+}
+
+// Len returns the length of Items.
+func (f Feed) Len() int {
+	return len(f.Items)
+}
+
+// Less compares PublishedParsed of Items[i], Items[k]
+// and returns true if Items[i] is less than Items[k].
+func (f Feed) Less(i, k int) bool {
+	return f.Items[i].PublishedParsed.Before(
+		*f.Items[k].PublishedParsed,
+	)
+}
+
+// Swap swaps Items[i] and Items[k].
+func (f Feed) Swap(i, k int) {
+	f.Items[i], f.Items[k] = f.Items[k], f.Items[i]
 }

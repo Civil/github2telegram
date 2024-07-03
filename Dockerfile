@@ -1,4 +1,4 @@
-FROM golang:1.15-alpine AS builder
+FROM golang:1.21-alpine AS builder
 
 # Set necessary environmet variables needed for our image
 ENV CGO_ENABLED=1 \
