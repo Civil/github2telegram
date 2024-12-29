@@ -20,3 +20,5 @@ docker run -d --hostname github2telegram --name github2telegram -v $(pwd)/config
 docker run -it --rm alpine /bin/sh -c "apk add --no-cache ca-certificates 2>&1 > /dev/null && cat /etc/ssl/certs/ca-certificates.crt" > ca-certificates.crt
 docker build -t wwwlde/github2telegram --no-cache --force-rm .
 ```
+###  Setup repo
+It is currently not possible to set repositories through the config, only directly through the bot
